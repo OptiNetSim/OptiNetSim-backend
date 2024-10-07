@@ -1,5 +1,7 @@
 # OptiNetSim-backend
 
+**Please note that this project is currently under development and some features may not be fully implemented yet.**
+
 **OptiNetSim** is a optical network simulation platform that allows users to design, analyze, and optimize optical network topologies. It leverages the GNPY library for physical layer simulations and provides a comprehensive set of features for network design and analysis.
 
 ### Key Features
