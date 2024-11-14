@@ -38,9 +38,32 @@ class Network:
         return db.networks.insert_one(network)
 
     @staticmethod
+    def modify_network_name(user_id, network_id, network_name):
+        db.networks.update_one(
+            {"_id": ObjectId(network_id), "user_id": ObjectId(user_id)},
+            {
+                "$set":
+                {
+                    "network_name": network_name,
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        return db.networks.find_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)})
+
+    @staticmethod
     def find_by_user_id(user_id):
         return db.networks.find({"user_id": ObjectId(user_id)})
+      
+    @staticmethod
+    def find_by_network_id(user_id, network_id):
+        return db.networks.find_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)})
 
+    @staticmethod
+    def delete_by_network_id(user_id, network_id):
+        # 删除网络并返回删除成功与否
+        return db.networks.delete_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)}).deleted_count
+      
 class EquipmentLibrary:
     @staticmethod
     def create(user_id, library_name):
