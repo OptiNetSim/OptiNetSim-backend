@@ -2,8 +2,10 @@ from flask import Flask, jsonify, request
 from flask_restful import Api, Resource, reqparse
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
-from src.optinetsim_backend.app.models import Network
+from bson import ObjectId
+from src.optinetsim_backend.app.models import Network, EquipmentLibrary
 from src.optinetsim_backend.app.auth import LoginResource, RegisterResource
+from src.optinetsim_backend.app.equipment_library import EquipmentLibraryList, EquipmentLibraryDetail, EquipmentList, EquipmentAddResource, EquipmentUpdateResource, EquipmentDeleteResource
 
 
 class NetworkList(Resource):
@@ -11,7 +13,6 @@ class NetworkList(Resource):
     def get(self):
         user_id = get_jwt_identity()
         networks = Network.find_by_user_id(user_id)
-        # Convert ObjectId to string and datetime to string, filter out only the required fields
         networks_list = [
             {
                 "network_id": str(network['_id']),
@@ -79,10 +80,23 @@ class NetworkResource(Resource):
 
 def api_init_app(app):
     api = Api(app)
-    api.add_resource(NetworkList, '/api/networks')
+
+    # 用户认证相关接口
     api.add_resource(LoginResource, '/api/auth/login')
     api.add_resource(RegisterResource, '/api/auth/register')
     api.add_resource(NetworkResource, '/api/networks/<string:network_id>')
+
+    # 器件库相关接口
+    api.add_resource(EquipmentLibraryList, '/api/equipment-libraries')
+    api.add_resource(EquipmentLibraryDetail, '/api/equipment-libraries/<string:library_id>')
+
+    # 新增器件操作相关接口
+    api.add_resource(EquipmentList, '/api/equipment-libraries/<string:library_id>/equipment')
+    api.add_resource(EquipmentAddResource, '/api/equipment-libraries/<string:library_id>/equipment/<string:category>')
+    api.add_resource(EquipmentUpdateResource,
+                     '/api/equipment-libraries/<string:library_id>/equipment/<string:category>/<string:type_variety>')
+    api.add_resource(EquipmentDeleteResource,
+                     '/api/equipment-libraries/<string:library_id>/equipment/<string:category>/<string:type_variety>')
 
     api.init_app(app)
 
