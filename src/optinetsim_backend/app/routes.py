@@ -5,7 +5,7 @@ from datetime import datetime
 from bson import ObjectId
 from src.optinetsim_backend.app.models import Network, EquipmentLibrary
 from src.optinetsim_backend.app.auth import LoginResource, RegisterResource
-from src.optinetsim_backend.app.equipment_library import EquipmentLibraryList, EquipmentLibraryDetail
+from src.optinetsim_backend.app.equipment_library import EquipmentLibraryList, EquipmentLibraryDetail, EquipmentList, EquipmentAddResource, EquipmentUpdateResource, EquipmentDeleteResource
 
 
 class NetworkList(Resource):
@@ -34,10 +34,22 @@ class NetworkList(Resource):
 
 def api_init_app(app):
     api = Api(app)
+
+    # 用户认证相关接口
     api.add_resource(LoginResource, '/api/auth/login')
     api.add_resource(RegisterResource, '/api/auth/register')
+
+    # 器件库相关接口
     api.add_resource(EquipmentLibraryList, '/api/equipment-libraries')
     api.add_resource(EquipmentLibraryDetail, '/api/equipment-libraries/<string:library_id>')
+
+    # 新增器件操作相关接口
+    api.add_resource(EquipmentList, '/api/equipment-libraries/<string:library_id>/equipment')
+    api.add_resource(EquipmentAddResource, '/api/equipment-libraries/<string:library_id>/equipment/<string:category>')
+    api.add_resource(EquipmentUpdateResource,
+                     '/api/equipment-libraries/<string:library_id>/equipment/<string:category>/<string:type_variety>')
+    api.add_resource(EquipmentDeleteResource,
+                     '/api/equipment-libraries/<string:library_id>/equipment/<string:category>/<string:type_variety>')
 
     api.init_app(app)
 
