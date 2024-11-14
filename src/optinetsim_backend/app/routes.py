@@ -1,9 +1,11 @@
-from flask import Flask, jsonify, request
+from flask import request, jsonify
 from flask_restful import Api, Resource
 from flask_jwt_extended import jwt_required, get_jwt_identity
 from datetime import datetime
-from src.optinetsim_backend.app.models import Network
+from bson import ObjectId
+from src.optinetsim_backend.app.models import Network, EquipmentLibrary
 from src.optinetsim_backend.app.auth import LoginResource, RegisterResource
+from src.optinetsim_backend.app.equipment_library import EquipmentLibraryList, EquipmentLibraryDetail
 
 
 class NetworkList(Resource):
@@ -11,7 +13,6 @@ class NetworkList(Resource):
     def get(self):
         user_id = get_jwt_identity()
         networks = Network.find_by_user_id(user_id)
-        # Convert ObjectId to string and datetime to string, filter out only the required fields
         networks_list = [
             {
                 "network_id": str(network['_id']),
@@ -33,9 +34,10 @@ class NetworkList(Resource):
 
 def api_init_app(app):
     api = Api(app)
-    api.add_resource(NetworkList, '/api/networks')
     api.add_resource(LoginResource, '/api/auth/login')
     api.add_resource(RegisterResource, '/api/auth/register')
+    api.add_resource(EquipmentLibraryList, '/api/equipment-libraries')
+    api.add_resource(EquipmentLibraryDetail, '/api/equipment-libraries/<string:library_id>')
 
     api.init_app(app)
 
