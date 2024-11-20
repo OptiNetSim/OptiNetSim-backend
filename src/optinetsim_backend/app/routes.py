@@ -6,8 +6,56 @@ from bson import ObjectId
 from src.optinetsim_backend.app.models import Network, EquipmentLibrary
 from src.optinetsim_backend.app.auth import LoginResource, RegisterResource
 from src.optinetsim_backend.app.equipment_library import EquipmentLibraryList, EquipmentLibraryDetail, EquipmentList, EquipmentAddResource, EquipmentUpdateResource, EquipmentDeleteResource
+from src.optinetsim_backend.app.topology import (  # 引入拓扑相关资源类
+    AddTopologyElement,
+    DeleteTopologyElement,
+    ModifyTopologyInterface,
+    ModifyGlobalSimulation,
+    ReadNetworkInterface
+)
+
+class AddTopologyElement(Resource):
+    @jwt_required()
+    def post(self, network_id):
+        user_id = get_jwt_identity()  # 获取当前用户ID
+        data = request.get_json()
+        result, status_code = AddTopologyElement(user_id, network_id, data)
+        return result, status_code
 
 
+class DeleteTopologyElement(Resource):
+    @jwt_required()
+    def delete(self, network_id, element_id):
+        user_id = get_jwt_identity()  # 获取当前用户ID
+        result, status_code = DeleteTopologyElement(user_id, network_id, element_id)
+        return result, status_code
+
+
+class ModifyGlobalSimulation(Resource):
+    @jwt_required()
+    def put(self, network_id):
+        user_id = get_jwt_identity()  # 获取当前用户ID
+        data = request.get_json()
+        result, status_code = ModifyGlobalSimulation(user_id, network_id, data)
+        return result, status_code
+
+
+class ModifyTopologyInterface(Resource):
+    @jwt_required()
+    def put(self, network_id, element_id):
+        user_id = get_jwt_identity()  # 获取当前用户ID
+        data = request.get_json()
+        result, status_code = ModifyTopologyInterface(user_id, network_id, element_id, data)
+        return result, status_code
+
+
+class ReadNetworkInterface(Resource):
+    @jwt_required()
+    def get(self, network_id):
+        user_id = get_jwt_identity()  # 获取当前用户ID
+        result, status_code = ReadNetworkInterface(user_id, network_id)
+        return result, status_code
+        
 class NetworkList(Resource):
     @jwt_required()
     def get(self):
