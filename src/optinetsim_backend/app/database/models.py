@@ -7,7 +7,7 @@ client = MongoClient(Config.MONGO_URI)
 db = client.optinetsim
 
 
-class User:
+class UserDB:
     @staticmethod
     def create(username, password, email):
         user = {
@@ -22,7 +22,7 @@ class User:
         return db.users.find_one({"username": username})
 
 
-class Network:
+class NetworkDB:
     @staticmethod
     def create(user_id, network_name):
         network = {
@@ -43,18 +43,39 @@ class Network:
             {"_id": ObjectId(network_id), "user_id": ObjectId(user_id)},
             {
                 "$set":
-                {
-                    "network_name": network_name,
-                    "updated_at": datetime.utcnow()
-                }
+                    {
+                        "network_name": network_name,
+                        "updated_at": datetime.utcnow()
+                    }
             }
         )
         return db.networks.find_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)})
 
     @staticmethod
+    def add_element(network_id, element):
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$push": {"elements": element}}
+        )
+
+    @staticmethod
+    def update_element(network_id, element_id, element):
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id), "elements.uid": element_id},
+            {"$set": {"elements.$": element}}
+        )
+
+    @staticmethod
+    def delete_by_element_id(network_id, element_id):
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$pull": {"elements": {"uid": element_id}}}
+        )
+
+    @staticmethod
     def find_by_user_id(user_id):
         return db.networks.find({"user_id": ObjectId(user_id)})
-      
+
     @staticmethod
     def find_by_network_id(user_id, network_id):
         return db.networks.find_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)})
@@ -63,8 +84,9 @@ class Network:
     def delete_by_network_id(user_id, network_id):
         # 删除网络并返回删除成功与否
         return db.networks.delete_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)}).deleted_count
-      
-class EquipmentLibrary:
+
+
+class EquipmentLibraryDB:
     @staticmethod
     def create(user_id, library_name):
         library = {
@@ -91,6 +113,16 @@ class EquipmentLibrary:
     @staticmethod
     def find_by_id(library_id):
         return db.equipment_libraries.find_one({"_id": ObjectId(library_id)})
+
+    @staticmethod
+    def find_by_type_variety(user_id, library_id, type_variety):
+        library = db.equipment_libraries.find_one({"_id": ObjectId(library_id)})
+        if library and library['user_id'] == ObjectId(user_id):
+            for category in library['equipments']:
+                for equipment in library['equipments'][category]:
+                    if equipment['type_variety'] == type_variety:
+                        return equipment
+        return None
 
     @staticmethod
     def update(library_id, library_name):
@@ -137,6 +169,7 @@ class EquipmentLibrary:
             {"$set": {"equipments": library['equipments'], "updated_at": datetime.utcnow()}}
         )
         return True
+
     # 更新器件的方法
     @staticmethod
     def update_equipment(library_id, category, type_variety, params):
