@@ -1,129 +1,22 @@
-from flask import Flask, jsonify, request
-from flask_restful import Api, Resource, reqparse
-from flask_jwt_extended import jwt_required, get_jwt_identity
-from datetime import datetime
-from bson import ObjectId
-from src.optinetsim_backend.app.models import Network, EquipmentLibrary
-from src.optinetsim_backend.app.auth import LoginResource, RegisterResource
-from src.optinetsim_backend.app.equipment_library import EquipmentLibraryList, EquipmentLibraryDetail, EquipmentList, EquipmentAddResource, EquipmentUpdateResource, EquipmentDeleteResource
-from src.optinetsim_backend.app.topology import (  # 引入拓扑相关资源类
-    AddTopologyElement,
-    DeleteTopologyElement,
-    ModifyTopologyInterface,
-    ModifyGlobalSimulation,
-    ReadNetworkInterface
+from flask_restful import Api
+
+
+# Project imports
+from src.optinetsim_backend.app.auth.auth import LoginResource, RegisterResource
+from src.optinetsim_backend.app.database.network import NetworkList, NetworkResource
+from src.optinetsim_backend.app.database.topology import (
+    TopologyAddElement,
+    TopologyUpdateElement,
+    TopologyDeleteElement
 )
-
-class AddTopologyElement(Resource):
-    @jwt_required()
-    def post(self, network_id):
-        user_id = get_jwt_identity()  # 获取当前用户ID
-        data = request.get_json()
-        result, status_code = AddTopologyElement(user_id, network_id, data)
-        return result, status_code
-
-
-class DeleteTopologyElement(Resource):
-    @jwt_required()
-    def delete(self, network_id, element_id):
-        user_id = get_jwt_identity()  # 获取当前用户ID
-        result, status_code = DeleteTopologyElement(user_id, network_id, element_id)
-        return result, status_code
-
-
-class ModifyGlobalSimulation(Resource):
-    @jwt_required()
-    def put(self, network_id):
-        user_id = get_jwt_identity()  # 获取当前用户ID
-        data = request.get_json()
-        result, status_code = ModifyGlobalSimulation(user_id, network_id, data)
-        return result, status_code
-
-
-class ModifyTopologyInterface(Resource):
-    @jwt_required()
-    def put(self, network_id, element_id):
-        user_id = get_jwt_identity()  # 获取当前用户ID
-        data = request.get_json()
-        result, status_code = ModifyTopologyInterface(user_id, network_id, element_id, data)
-        return result, status_code
-
-
-class ReadNetworkInterface(Resource):
-    @jwt_required()
-    def get(self, network_id):
-        user_id = get_jwt_identity()  # 获取当前用户ID
-        result, status_code = ReadNetworkInterface(user_id, network_id)
-        return result, status_code
-        
-class NetworkList(Resource):
-    @jwt_required()
-    def get(self):
-        user_id = get_jwt_identity()
-        networks = Network.find_by_user_id(user_id)
-        networks_list = [
-            {
-                "network_id": str(network['_id']),
-                "network_name": network['network_name'],
-                "created_at": network['created_at'].strftime('%Y-%m-%dT%H:%M:%SZ'),
-                "updated_at": network['updated_at'].strftime('%Y-%m-%dT%H:%M:%SZ')
-            }
-            for network in networks
-        ]
-        return {'networks': networks_list}, 200
-
-    @jwt_required()
-    def post(self):
-        user_id = get_jwt_identity()
-        network_name = request.json.get('network_name', None)
-        network_id = Network.create(user_id, network_name)
-        return {'network_id': str(network_id.inserted_id)}, 201
-
-
-class NetworkResource(Resource):
-    @jwt_required()  # 添加 JWT 鉴权
-    def get(self, network_id):
-        user_id = get_jwt_identity()
-        network = Network.find_by_network_id(user_id, network_id)
-        if network:
-            # 返回网络信息
-            return {
-                "network_id": str(network['_id']),
-                "network_name": network['network_name'],
-                "created_at": network['created_at'].strftime('%Y-%m-%dT%H:%M:%SZ'),
-                "updated_at": network['updated_at'].strftime('%Y-%m-%dT%H:%M:%SZ'),
-                "elements": network['elements'],
-                "connections": network['connections'],
-                "service": network['services'],
-                "simulation_config": network['simulation_config']
-            }, 200
-        return {'message': 'Network not found'}, 404
-
-    @jwt_required()  # 添加 JWT 鉴权
-    def put(self, network_id):
-        user_id = get_jwt_identity()
-        parser = reqparse.RequestParser()
-        parser.add_argument('network_name', type=str, required=True)
-        args = parser.parse_args()
-
-        network = Network.modify_network_name(user_id, network_id, args['network_name'])
-        if network:
-            # 返回网络信息
-            return {
-                "network_id": str(network['_id']),
-                "network_name": network['network_name'],
-                "created_at": network['created_at'].strftime('%Y-%m-%dT%H:%M:%SZ'),
-                "updated_at": network['updated_at'].strftime('%Y-%m-%dT%H:%M:%SZ')
-            }, 200
-        return {'message': 'Network not found'}, 404
-
-    @jwt_required()  # 添加 JWT 鉴权
-    def delete(self, network_id):
-        user_id = get_jwt_identity()
-        network = Network.delete_by_network_id(user_id, network_id)
-        if network:
-            return {'message': 'Network deleted successfully'}, 200
-        return {'message': 'Network not found'}, 404
+from src.optinetsim_backend.app.database.equipment_library import (
+    EquipmentLibraryList,
+    EquipmentLibraryDetail,
+    EquipmentList,
+    EquipmentAddResource,
+    EquipmentUpdateResource,
+    EquipmentDeleteResource
+)
 
 
 def api_init_app(app):
@@ -132,7 +25,15 @@ def api_init_app(app):
     # 用户认证相关接口
     api.add_resource(LoginResource, '/api/auth/login')
     api.add_resource(RegisterResource, '/api/auth/register')
+
+    # 网络相关接口
+    api.add_resource(NetworkList, '/api/networks')
     api.add_resource(NetworkResource, '/api/networks/<string:network_id>')
+
+    # 拓扑元素相关接口
+    api.add_resource(TopologyAddElement, '/api/networks/<string:network_id>/elements')
+    api.add_resource(TopologyUpdateElement, '/api/networks/<string:network_id>/elements/<string:element_id>')
+    api.add_resource(TopologyDeleteElement, '/api/networks/<string:network_id>/elements/<string:element_id>')
 
     # 器件库相关接口
     api.add_resource(EquipmentLibraryList, '/api/equipment-libraries')
