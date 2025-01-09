@@ -115,13 +115,11 @@ class EquipmentLibraryDB:
         return db.equipment_libraries.find_one({"_id": ObjectId(library_id)})
 
     @staticmethod
-    def find_by_type_variety(user_id, library_id, type_variety):
-        library = db.equipment_libraries.find_one({"_id": ObjectId(library_id)})
-        if library and library['user_id'] == ObjectId(user_id):
-            for category in library['equipments']:
-                for equipment in library['equipments'][category]:
-                    if equipment['type_variety'] == type_variety:
-                        return equipment
+    def find_by_type_variety(user_id, library_id, element_type, element_type_variety):
+        # 返回器件库中是否存在该类型的器件，存在则返回该器件，否则返回 None
+        library = db.equipment_libraries.find_one({"_id": ObjectId(library_id), "user_id": ObjectId(user_id)})
+        if library and element_type in library['equipments']:
+            return next((e for e in library['equipments'][element_type] if e['type_variety'] == element_type_variety), None)
         return None
 
     @staticmethod

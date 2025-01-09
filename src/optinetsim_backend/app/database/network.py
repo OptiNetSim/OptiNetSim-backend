@@ -35,29 +35,15 @@ class NetworkResource(Resource):
     def get(self, network_id):
         user_id = get_jwt_identity()
         networks = NetworkDB.find_by_network_id(user_id, network_id)
+        # ObjectId 转换为字符串
+        networks['_id'] = str(networks['_id'])
+        networks['user_id'] = str(networks['user_id'])
+        # 时间格式转换
+        networks['created_at'] = networks['created_at'].strftime('%Y-%m-%dT%H:%M:%SZ')
+        networks['updated_at'] = networks['updated_at'].strftime('%Y-%m-%dT%H:%M:%SZ')
         if networks:
             # 返回网络信息
-            return {
-                "network_id": str(networks['_id']),
-                "network_name": networks['network_name'],
-                "created_at": networks['created_at'].strftime('%Y-%m-%dT%H:%M:%SZ'),
-                "updated_at": networks['updated_at'].strftime('%Y-%m-%dT%H:%M:%SZ'),
-                "elements": [
-                    {
-                        "uid": str(element['uid']),
-                        "library_id": element['library_id'],
-                        "name": element['name'],
-                        "type": element['type'],
-                        "type_variety": element['type_variety'],
-                        "params": element['params'],
-                        "metadata": element['metadata']
-                    }
-                    for element in networks['elements']
-                ],
-                "connections": networks['connections'],
-                "service": networks['services'],
-                "simulation_config": networks['simulation_config']
-            }, 200
+            return networks, 200
         return {'message': 'Network not found'}, 404
 
     @jwt_required()  # 添加 JWT 鉴权
