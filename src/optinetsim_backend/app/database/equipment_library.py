@@ -1,8 +1,10 @@
 from flask import request
 from flask_restful import Resource
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from src.optinetsim_backend.app.database.models import EquipmentLibraryDB
 from bson import ObjectId
+
+# Project imports
+from src.optinetsim_backend.app.database.models import EquipmentLibraryDB
 
 
 class EquipmentLibraryList(Resource):

@@ -33,6 +33,8 @@ class NetworkDB:
             "elements": [],
             "connections": [],
             "services": [],
+            "SI": {},
+            "Span": {},
             "simulation_config": {}
         }
         return db.networks.insert_one(network)
@@ -98,9 +100,7 @@ class EquipmentLibraryDB:
                 "Edfa": [],
                 "Fiber": [],
                 "RamanFiber": [],
-                "Span": [],
                 "Roadm": [],
-                "SI": [],
                 "Transceiver": []
             }
         }

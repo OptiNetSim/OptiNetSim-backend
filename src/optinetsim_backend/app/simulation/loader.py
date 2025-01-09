@@ -22,9 +22,6 @@ from gnpy.tools.json_io import Amp, merge_equalization
 # Project imports
 from src.optinetsim_backend.app.database.models import NetworkDB, EquipmentLibraryDB
 
-# Logger
-_logger = getLogger(__name__)
-
 
 # Transceiver element loader
 def transceiver_loader(user_id, element_config):
@@ -109,13 +106,13 @@ def fiber_loader(user_id, element_config):
             raise ConfigurationError(f'Fiber "{element_type_variety}" not found in library')
         extra_params = extra_params['params']
         temp = element_config.setdefault('params', {})
-        # Debug
-        print('Element config', element_config)
-        print('Params', element_config['params'])
-        print('temp', temp)
-        print('Type of temp', type(temp))
-        print('extra_params', extra_params)
-        print('Type of extra_params', type(extra_params))
+        # # Debug
+        # print('Element config', element_config)
+        # print('Params', element_config['params'])
+        # print('temp', temp)
+        # print('Type of temp', type(temp))
+        # print('extra_params', extra_params)
+        # print('Type of extra_params', type(extra_params))
         temp = merge_amplifier_restrictions(temp, deepcopy(extra_params))
         config_dict['params'] = temp
     else:
@@ -245,7 +242,17 @@ def load_network_from_database(user_id, network_id):
     return g
 
 
-if __name__ == '__main__':
-    # Load network from database
-    network = load_network_from_database("6707bbb1a58be0ffa5d05618", "6707bbe8a58be0ffa5d05619")
-    print(network)
+# Load spectral information from the database
+def load_spectral_information_from_database(user_id, network_id):
+    network = NetworkDB.find_by_network_id(user_id, network_id)
+    if not network:
+        return None
+    return network['SI']
+
+
+# Load span information from the database
+def load_span_information_from_database(user_id, network_id):
+    network = NetworkDB.find_by_network_id(user_id, network_id)
+    if not network:
+        return None
+    return network['Span']
