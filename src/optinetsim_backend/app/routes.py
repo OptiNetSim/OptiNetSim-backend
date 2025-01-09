@@ -2,21 +2,8 @@ from flask_restful import Api
 
 
 # Project imports
-from src.optinetsim_backend.app.auth.auth import LoginResource, RegisterResource
-from src.optinetsim_backend.app.database.network import NetworkList, NetworkResource
-from src.optinetsim_backend.app.database.topology import (
-    TopologyAddElement,
-    TopologyUpdateElement,
-    TopologyDeleteElement
-)
-from src.optinetsim_backend.app.database.equipment_library import (
-    EquipmentLibraryList,
-    EquipmentLibraryDetail,
-    EquipmentList,
-    EquipmentAddResource,
-    EquipmentUpdateResource,
-    EquipmentDeleteResource
-)
+from src.optinetsim_backend.app.auth import *
+from src.optinetsim_backend.app.database import *
 
 
 def api_init_app(app):
@@ -46,6 +33,9 @@ def api_init_app(app):
                      '/api/equipment-libraries/<string:library_id>/equipment/<string:category>/<string:type_variety>')
     api.add_resource(EquipmentDeleteResource,
                      '/api/equipment-libraries/<string:library_id>/equipment/<string:category>/<string:type_variety>')
+
+    # 仿真相关接口
+    # TODO: API resource for simulation
 
     api.init_app(app)
 
