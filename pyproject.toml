@@ -11,6 +11,7 @@ dependencies = [
     "Flask-JWT-Extended>=4.6.0",
     "PyMongo>=4.10.1",
     "python-dotenv>=1.0.1",
+    "gnpy==2.11.0",
 ]
 requires-python = "==3.11.*"
 readme = "README.md"
