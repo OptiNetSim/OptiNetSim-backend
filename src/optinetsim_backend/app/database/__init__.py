@@ -12,6 +12,10 @@ from .topology import (
     TopologyUpdateElement,
     TopologyDeleteElement
 )
+from .global_config import (
+    SimulationConfigResource,
+    SpectrumInformationResource,
+    SpectrumInformationResource
 
 
 __all__ = [
