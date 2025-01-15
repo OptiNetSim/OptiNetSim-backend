@@ -1,9 +1,16 @@
 from flask_restful import Api
-
+from flask import Flask
+from flask_jwt_extended import JWTManager
 
 # Project imports
 from src.optinetsim_backend.app.auth import *
 from src.optinetsim_backend.app.database import *
+import create_connection
+import modify_connection
+import delete_connection
+
+app = Flask(__name__)
+jwt = JWTManager(app)
 
 
 def api_init_app(app):
@@ -37,6 +44,17 @@ def api_init_app(app):
     # 仿真相关接口
     # TODO: API resource for simulation
 
+    # 连接相关接口
+    app.route('/api/networks/<network_id>/connections', methods=['POST'])(create_connection.create_connection)
+    app.route('/api/networks/<network_id>/connections/<connection_id>', methods=['PUT'])(modify_connection.update_connection)
+    app.route('/api/networks/<network_id>/connections/<connection_id>', methods=['DELETE'])(delete_connection.delete_connection)
+
     api.init_app(app)
 
     return app
+
+if __name__ == '__main__':
+    jwt_secret_key = input("请输入 JWT 密钥：")
+    app.config['JWT_SECRET_KEY'] = jwt_secret_key
+    app = api_init_app()
+    app.run()
