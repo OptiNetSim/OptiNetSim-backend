@@ -4,11 +4,8 @@
 [metadata]
 groups = ["default"]
 strategy = ["inherit_metadata"]
-lock_version = "4.5.0"
-content_hash = "sha256:675a7afe14f630c973b5c7f6d0e3a62feb8c0b13e3f47eb314ca1bf62abef13b"
-
-[[metadata.targets]]
-requires_python = "==3.11.*"
+lock_version = "4.4.1"
+content_hash = "sha256:2fbe051c6c7d6a9b25713b350d97bb1d8607f0b6fe83bf0e0122850d048df286"
 
 [[package]]
 name = "aniso8601"
@@ -39,7 +36,6 @@ summary = "Composable command line interface toolkit"
 groups = ["default"]
 dependencies = [
     "colorama; platform_system == \"Windows\"",
-    "importlib-metadata; python_version < \"3.8\"",
 ]
 files = [
     {file = "click-8.1.7-py3-none-any.whl", hash = "sha256:ae74fb96c20a0277a1d615f1e4d73c8414f5a98db8b799a7931d1582f3390c28"},
@@ -114,12 +110,24 @@ dependencies = [
     "Werkzeug>=3.0.0",
     "blinker>=1.6.2",
     "click>=8.1.3",
-    "importlib-metadata>=3.6.0; python_version < \"3.10\"",
     "itsdangerous>=2.1.2",
 ]
 files = [
     {file = "flask-3.0.3-py3-none-any.whl", hash = "sha256:34e815dfaa43340d1d15a5c3a02b8476004037eb4840b34910c6e21679d288f3"},
     {file = "flask-3.0.3.tar.gz", hash = "sha256:ceb27b0af3823ea2737928a4d99d125a06175b8512c445cbd9a9ce200ef76842"},
+]
+
+[[package]]
+name = "flask-cors"
+version = "5.0.0"
+summary = "A Flask extension adding a decorator for CORS support"
+groups = ["default"]
+dependencies = [
+    "Flask>=0.9",
+]
+files = [
+    {file = "Flask_Cors-5.0.0-py2.py3-none-any.whl", hash = "sha256:b9e307d082a9261c100d8fb0ba909eec6a228ed1b60a8315fd85f783d61910bc"},
+    {file = "flask_cors-5.0.0.tar.gz", hash = "sha256:5aadb4b950c4e93745034594d9f3ea6591f734bb3662e16e255ffbf5e89c88ef"},
 ]
 
 [[package]]
@@ -132,7 +140,6 @@ dependencies = [
     "Flask<4.0,>=2.0",
     "PyJWT<3.0,>=2.0",
     "Werkzeug>=0.14",
-    "typing-extensions>=3.7.4; python_version < \"3.8\"",
 ]
 files = [
     {file = "Flask-JWT-Extended-4.6.0.tar.gz", hash = "sha256:9215d05a9413d3855764bcd67035e75819d23af2fafb6b55197eb5a3313fdfb2"},
