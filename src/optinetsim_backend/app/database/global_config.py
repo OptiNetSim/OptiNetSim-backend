@@ -1,8 +1,8 @@
 from flask_restful import Resource, reqparse
-from flask import request
 from flask_jwt_extended import jwt_required
 from werkzeug.exceptions import BadRequest
 from pymongo import MongoClient
+from bson import ObjectId
 
 # 连接 MongoDB
 client = MongoClient("mongodb://localhost:27017/")
@@ -13,6 +13,9 @@ class SimulationConfigResource(Resource):
     # 用于更新指定光网络的仿真全局设定
     @jwt_required()  # JWT鉴权
     def put(self, network_id):
+        if not ObjectId.is_valid(network_id):
+            return {"message": "Invalid network ID format."}, 400
+
         # 定义请求解析器
         parser = reqparse.RequestParser()
         parser.add_argument('raman_params', type=dict, required=True, help="Raman parameters are required.")
@@ -41,6 +44,10 @@ class SpectrumInformationResource(Resource):
     # 更新指定光网络的频谱信息
     @jwt_required()  # JWT鉴权
     def put(self, network_id):
+        # 确保 network_id 是有效的 ObjectId 格式
+        if not ObjectId.is_valid(network_id):
+            return {"message": "Invalid network ID format."}, 400
+
         # 定义请求参数解析器
         parser = reqparse.RequestParser()
         parser.add_argument('f_min', type=float, required=True, help="Minimum frequency (f_min) is required.")
@@ -58,7 +65,7 @@ class SpectrumInformationResource(Resource):
             args = parser.parse_args()
 
             # 检查网络是否存在
-            network = networks_collection.find_one({"_id": network_id})
+            network = networks_collection.find_one({"_id": ObjectId(network_id)})
             if not network:
                 return {"message": f"Network {network_id} not found."}, 404
 
@@ -76,8 +83,8 @@ class SpectrumInformationResource(Resource):
             }
 
             networks_collection.update_one(
-                {"_id": network_id},
-                {"$set": {"spectrum_information": spectrum_information}}
+                {"_id": ObjectId(network_id)},
+                {"$set": {"SI": spectrum_information}}
             )
 
             # 返回更新后的频谱信息
@@ -87,10 +94,14 @@ class SpectrumInformationResource(Resource):
             return {"message": str(e)}, 400
         except Exception as e:
             return {"message": "An error occurred: " + str(e)}, 500
+
 class SpanParametersResource(Resource):
     # 更新指定光网络的跨段参数
     @jwt_required()  # JWT鉴权
     def put(self, network_id):
+        if not ObjectId.is_valid(network_id):
+            return {"message": "Invalid network ID format."}, 400
+
         # 定义请求解析器
         parser = reqparse.RequestParser()
         parser.add_argument('power_mode', type=bool, required=True, help="Power mode is required.")
@@ -110,7 +121,7 @@ class SpanParametersResource(Resource):
             args = parser.parse_args()
 
             # 检查网络是否存在
-            network = networks_collection.find_one({"_id": network_id})
+            network = networks_collection.find_one({"_id": ObjectId(network_id)})
             if not network:
                 return {"message": f"Network {network_id} not found."}, 404
 
@@ -130,8 +141,8 @@ class SpanParametersResource(Resource):
             }
 
             networks_collection.update_one(
-                {"_id": network_id},
-                {"$set": {"span_parameters": span_parameters}}
+                {"_id": ObjectId(network_id)},
+                {"$set": {"Span": span_parameters}}
             )
 
             # 返回更新后的跨段参数
