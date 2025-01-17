@@ -9,6 +9,7 @@ client = MongoClient("mongodb://localhost:27017/")
 db = client["optinetsim"]  # 数据库名称
 networks_collection = db["networks"]  # 集合名称，用于存储网络数据
 
+
 class SimulationConfigResource(Resource):
     # 用于更新指定光网络的仿真全局设定
     @jwt_required()  # JWT鉴权
@@ -40,6 +41,7 @@ class SimulationConfigResource(Resource):
         except Exception as e:
             return {"message": "An error occurred: " + str(e)}, 500
 
+
 class SpectrumInformationResource(Resource):
     # 更新指定光网络的频谱信息
     @jwt_required()  # JWT鉴权
@@ -55,7 +57,8 @@ class SpectrumInformationResource(Resource):
         parser.add_argument('f_max', type=float, required=True, help="Maximum frequency (f_max) is required.")
         parser.add_argument('spacing', type=float, required=True, help="Channel spacing is required.")
         parser.add_argument('power_dbm', type=float, required=True, help="Power (dBm) is required.")
-        parser.add_argument('power_range_db', type=list, location='json', required=True, help="Power range is required.")
+        parser.add_argument('power_range_db', type=list, location='json', required=True,
+                            help="Power range is required.")
         parser.add_argument('roll_off', type=float, required=True, help="Roll-off factor is required.")
         parser.add_argument('tx_osnr', type=float, required=True, help="Transmit OSNR is required.")
         parser.add_argument('sys_margins', type=float, required=True, help="System margins are required.")
@@ -95,6 +98,7 @@ class SpectrumInformationResource(Resource):
         except Exception as e:
             return {"message": "An error occurred: " + str(e)}, 500
 
+
 class SpanParametersResource(Resource):
     # 更新指定光网络的跨段参数
     @jwt_required()  # JWT鉴权
@@ -105,8 +109,10 @@ class SpanParametersResource(Resource):
         # 定义请求解析器
         parser = reqparse.RequestParser()
         parser.add_argument('power_mode', type=bool, required=True, help="Power mode is required.")
-        parser.add_argument('delta_power_range_db', type=list, location='json', required=True, help="Delta power range is required.")
-        parser.add_argument('max_fiber_lineic_loss_for_raman', type=float, required=True, help="Max fiber lineic loss for Raman is required.")
+        parser.add_argument('delta_power_range_db', type=list, location='json', required=True,
+                            help="Delta power range is required.")
+        parser.add_argument('max_fiber_lineic_loss_for_raman', type=float, required=True,
+                            help="Max fiber lineic loss for Raman is required.")
         parser.add_argument('target_extended_gain', type=float, required=True, help="Target extended gain is required.")
         parser.add_argument('max_length', type=float, required=True, help="Max span length is required.")
         parser.add_argument('length_units', type=str, required=True, help="Length units are required.")
