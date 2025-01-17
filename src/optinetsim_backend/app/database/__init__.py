@@ -12,7 +12,12 @@ from .topology import (
     TopologyUpdateElement,
     TopologyDeleteElement
 )
+from .global_config import (
+    SimulationConfigResource,
+    SpectrumInformationResource,
+    SpanParametersResource
 
+)
 
 __all__ = [
     'NetworkList',
@@ -25,5 +30,8 @@ __all__ = [
     'EquipmentList',
     'TopologyAddElement',
     'TopologyUpdateElement',
-    'TopologyDeleteElement'
+    'TopologyDeleteElement',
+    'SimulationConfigResource',
+    'SpectrumInformationResource',
+    'SpanParametersResource',
 ]

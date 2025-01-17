@@ -1,6 +1,5 @@
 from flask_restful import Api
 
-
 # Project imports
 from src.optinetsim_backend.app.auth import *
 from src.optinetsim_backend.app.database import *
@@ -33,6 +32,11 @@ def api_init_app(app):
                      '/api/equipment-libraries/<string:library_id>/equipment/<string:category>/<string:type_variety>')
     api.add_resource(EquipmentDeleteResource,
                      '/api/equipment-libraries/<string:library_id>/equipment/<string:category>/<string:type_variety>')
+
+    # 全局变量相关接口
+    api.add_resource(SimulationConfigResource, '/api/networks/<string:network_id>/simulation-config')
+    api.add_resource(SpectrumInformationResource, '/api/networks/<string:network_id>/spectrum-information')
+    api.add_resource(SpanParametersResource, '/api/networks/<string:network_id>/span-parameters')
 
     # 仿真相关接口
     # TODO: API resource for simulation
