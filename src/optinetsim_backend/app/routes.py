@@ -4,10 +4,6 @@ from flask_restful import Api
 # Project imports
 from src.optinetsim_backend.app.auth import *
 from src.optinetsim_backend.app.database import *
-from src.optinetsim_backend.app.database.global_config import SimulationConfigResource
-from src.optinetsim_backend.app.database.global_config import SpectrumInformationResource
-from src.optinetsim_backend.app.database.global_config import SpanParametersResource
-
 def api_init_app(app):
     api = Api(app)
 
