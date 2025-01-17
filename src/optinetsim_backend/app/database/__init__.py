@@ -15,8 +15,9 @@ from .topology import (
 from .global_config import (
     SimulationConfigResource,
     SpectrumInformationResource,
-    SpectrumInformationResource
+    SpanParametersResource
 
+)
 
 __all__ = [
     'NetworkList',
@@ -29,5 +30,8 @@ __all__ = [
     'EquipmentList',
     'TopologyAddElement',
     'TopologyUpdateElement',
-    'TopologyDeleteElement'
+    'TopologyDeleteElement',
+    'SimulationConfigResource',
+    'SpectrumInformationResource',
+    'SpanParametersResource',
 ]
