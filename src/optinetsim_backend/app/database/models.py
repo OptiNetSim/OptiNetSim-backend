@@ -35,9 +35,11 @@ class NetworkDB:
             "services": [],
             "SI": {},
             "Span": {},
-            "simulation_config": {}
+            "simulation_config": {},
+            "topologies": []  # 新增字段，用于存放拓扑
         }
         return db.networks.insert_one(network)
+
 
     @staticmethod
     def modify_network_name(user_id, network_id, network_name):
