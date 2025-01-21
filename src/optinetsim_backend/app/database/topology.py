@@ -55,7 +55,12 @@ def validate_element_data(data, element_type):
                 "out_voa": (int, float),  # 可选，必须是整数或浮点数
                 "in_voa": (int, float),  # 可选，必须是整数或浮点数
                 "tilt_target": (int, float),  # 可选，必须是整数或浮点数
-            }
+            },
+        },
+        "Multiband_amplifier": {
+            "library_id": str,  # 设备库 ID，必须是字符串
+            "type_variety": str,  # 可选，必须是字符串
+            "amplifiers": list,  # 必须是列表
         },
         "Roadm": {
             "library_id": str,  # 设备库 ID，必须是字符串
@@ -103,6 +108,24 @@ def validate_element_data(data, element_type):
                         if sub_field in data[field]:
                             if not isinstance(data[field][sub_field], sub_field_type):
                                 return False, f"Field {field}.{sub_field} must be of type {sub_field_type}"
+                elif field == "amplifiers" and element_type == "Multiband_amplifier":
+                    # 特殊处理 Multiband_amplifier 的 amplifiers 字段
+                    if not isinstance(data[field], list):
+                        return False, f"Field {field} must be a list"
+                    for amplifier in data[field]:
+                        if not isinstance(amplifier, dict):
+                            return False, f"Each item in {field} must be a dictionary"
+                        if "type_variety" not in amplifier:
+                            return False, f"Each amplifier in {field} must have a 'type_variety' field"
+                        if not isinstance(amplifier["type_variety"], str):
+                            return False, f"Field type_variety in {field} must be a string"
+                        if "operational" in amplifier:
+                            if not isinstance(amplifier["operational"], dict):
+                                return False, f"Field operational in {field} must be a dictionary"
+                            for op_field, op_type in type_specific_fields["Edfa"]["operational"].items():
+                                if op_field in amplifier["operational"]:
+                                    if not isinstance(amplifier["operational"][op_field], op_type):
+                                        return False, f"Field {op_field} in operational must be of type {op_type}"
                 else:
                     if not isinstance(data[field], field_type):
                         return False, f"Field {field} must be of type {field_type}"
@@ -114,7 +137,7 @@ def validate_element_data(data, element_type):
 
     for field in data.keys():
         if field not in allowed_fields:
-            return False, f"Undefined field: {field}"
+                return False, f"Undefined field: {field}"
 
     return True, "Data is valid"
 
