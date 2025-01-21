@@ -87,6 +87,27 @@ class NetworkDB:
         # 删除网络并返回删除成功与否
         return db.networks.delete_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)}).deleted_count
 
+    @staticmethod
+    def update_simulation_config(network_id, simulation_config):
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$set": {"simulation_config": simulation_config}}
+        )
+
+    @staticmethod
+    def update_spectrum_information(network_id, spectrum_information):
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$set": {"SI": spectrum_information}}
+        )
+
+    @staticmethod
+    def update_span_parameters(network_id, span_parameters):
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$set": {"Span": span_parameters}}
+        )
+
 
 class EquipmentLibraryDB:
     @staticmethod

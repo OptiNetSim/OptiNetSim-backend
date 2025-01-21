@@ -1,13 +1,111 @@
 from flask_restful import Resource, reqparse
-from flask_jwt_extended import jwt_required
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.exceptions import BadRequest
-from pymongo import MongoClient
 from bson import ObjectId
 
-# 连接 MongoDB
-client = MongoClient("mongodb://localhost:27017/")
-db = client["optinetsim"]  # 数据库名称
-networks_collection = db["networks"]  # 集合名称，用于存储网络数据
+# Project imports
+from src.optinetsim_backend.app.database.models import NetworkDB
+
+
+def validate_simulation_config(raman_params, nli_params):
+    # 定义 raman_params 和 nli_params 的字段及其类型
+    raman_fields = {
+        "flag": bool,
+        "method": str,
+        "order": int,
+        "result_spatial_resolution": (int, float),
+        "solver_spatial_resolution": (int, float)
+    }
+
+    nli_fields = {
+        "method": str,
+        "dispersion_tolerance": (int, float),
+        "phase_shift_tolerance": (int, float),
+        "computed_channels": list,
+        "computed_number_of_channels": int
+    }
+
+    # 检查 raman_params 中是否有额外字段
+    for field in raman_params:
+        if field not in raman_fields:
+            return False, f"Unexpected field '{field}' in raman_params."
+
+    # 检查 nli_params 中是否有额外字段
+    for field in nli_params:
+        if field not in nli_fields:
+            return False, f"Unexpected field '{field}' in nli_params."
+
+    # 校验 raman_params 的字段类型
+    for field, expected_type in raman_fields.items():
+        if field in raman_params:
+            if not isinstance(raman_params[field], expected_type):
+                return False, f"Invalid type for raman_params['{field}']. Expected {expected_type}."
+
+    # 校验 nli_params 的字段类型
+    for field, expected_type in nli_fields.items():
+        if field in nli_params:
+            if not isinstance(nli_params[field], expected_type):
+                return False, f"Invalid type for nli_params['{field}']. Expected {expected_type}."
+
+    return True, "Validation successful."
+
+
+def validate_spectrum_information(spectrum_info):
+    # 定义 spectrum_info 的字段及其类型
+    spectrum_fields = {
+        "f_min": (int, float),
+        "baud_rate": (int, float),
+        "f_max": (int, float),
+        "spacing": (int, float),
+        "power_dbm": (int, float),
+        "power_range_db": list,
+        "roll_off": (int, float),
+        "tx_osnr": (int, float),
+        "sys_margins": (int, float)
+    }
+
+    # 检查 spectrum_info 中是否有额外字段
+    for field in spectrum_info:
+        if field not in spectrum_fields:
+            return False, f"Unexpected field '{field}' in spectrum_info."
+
+    # 校验 spectrum_info 的字段类型
+    for field, expected_type in spectrum_fields.items():
+        if field in spectrum_info:
+            if not isinstance(spectrum_info[field], expected_type):
+                return False, f"Invalid type for spectrum_info['{field}']. Expected {expected_type}."
+
+    return True, "Validation successful."
+
+
+def validate_span_parameters(span_parameters):
+    # 定义 span_parameters 的字段及其类型
+    span_fields = {
+        "power_mode": bool,
+        "delta_power_range_db": list,
+        "max_fiber_lineic_loss_for_raman": (int, float),
+        "target_extended_gain": (int, float),
+        "max_length": (int, float),
+        "length_units": str,
+        "max_loss": (int, float),
+        "padding": (int, float),
+        "EOL": (int, float),
+        "con_in": (int, float),
+        "con_out": (int, float)
+    }
+
+    # 检查 span_parameters 中是否有额外字段
+    for field in span_parameters:
+        if field not in span_fields:
+            return False, f"Unexpected field '{field}' in span_parameters."
+
+    # 校验 span_parameters 的字段类型
+    for field, expected_type in span_fields.items():
+        if field in span_parameters:
+            if not isinstance(span_parameters[field], expected_type):
+                return False, f"Invalid type for span_parameters['{field}']. Expected {expected_type}."
+
+    return True, "Validation successful."
 
 
 class SimulationConfigResource(Resource):
@@ -28,14 +126,27 @@ class SimulationConfigResource(Resource):
             raman_params = args['raman_params']
             nli_params = args['nli_params']
 
-            # 这里可以将数据存入数据库或处理业务逻辑
-            # 模拟返回相同的配置数据作为响应
-            response = {
+            # 校验 raman_params 和 nli_params 的格式
+            is_valid, message = validate_simulation_config(raman_params, nli_params)
+            if not is_valid:
+                return {"message": message}, 400
+
+            # 检查网络是否存在
+            user_id = get_jwt_identity()
+            network = NetworkDB.find_by_network_id(user_id, network_id)
+            if not network:
+                return {"message": f"Network {network_id} not found."}, 404
+
+            # 更新数据库中的仿真配置
+            simulation_config = {
                 "raman_params": raman_params,
                 "nli_params": nli_params
             }
+            NetworkDB.update_simulation_config(network_id, simulation_config)
 
-            return response, 200
+            # 返回更新后的仿真配置
+            return simulation_config, 200
+
         except BadRequest as e:
             return {"message": str(e)}, 400
         except Exception as e:
@@ -46,7 +157,6 @@ class SpectrumInformationResource(Resource):
     # 更新指定光网络的频谱信息
     @jwt_required()  # JWT鉴权
     def put(self, network_id):
-        # 确保 network_id 是有效的 ObjectId 格式
         if not ObjectId.is_valid(network_id):
             return {"message": "Invalid network ID format."}, 400
 
@@ -67,13 +177,8 @@ class SpectrumInformationResource(Resource):
             # 解析请求体参数
             args = parser.parse_args()
 
-            # 检查网络是否存在
-            network = networks_collection.find_one({"_id": ObjectId(network_id)})
-            if not network:
-                return {"message": f"Network {network_id} not found."}, 404
-
-            # 更新网络的频谱信息
-            spectrum_information = {
+            # 校验频谱信息的格式
+            spectrum_info = {
                 "f_min": args["f_min"],
                 "baud_rate": args["baud_rate"],
                 "f_max": args["f_max"],
@@ -84,14 +189,21 @@ class SpectrumInformationResource(Resource):
                 "tx_osnr": args["tx_osnr"],
                 "sys_margins": args["sys_margins"]
             }
+            is_valid, message = validate_spectrum_information(spectrum_info)
+            if not is_valid:
+                return {"message": message}, 400
 
-            networks_collection.update_one(
-                {"_id": ObjectId(network_id)},
-                {"$set": {"SI": spectrum_information}}
-            )
+            # 检查网络是否存在
+            user_id = get_jwt_identity()
+            network = NetworkDB.find_by_network_id(user_id, network_id)
+            if not network:
+                return {"message": f"Network {network_id} not found."}, 404
+
+            # 更新数据库中的频谱信息
+            NetworkDB.update_spectrum_information(network_id, spectrum_info)
 
             # 返回更新后的频谱信息
-            return spectrum_information, 200
+            return spectrum_info, 200
 
         except BadRequest as e:
             return {"message": str(e)}, 400
@@ -126,12 +238,7 @@ class SpanParametersResource(Resource):
             # 获取请求体的 JSON 内容
             args = parser.parse_args()
 
-            # 检查网络是否存在
-            network = networks_collection.find_one({"_id": ObjectId(network_id)})
-            if not network:
-                return {"message": f"Network {network_id} not found."}, 404
-
-            # 更新数据库中的跨段参数
+            # 校验跨段参数的格式
             span_parameters = {
                 "power_mode": args["power_mode"],
                 "delta_power_range_db": args["delta_power_range_db"],
@@ -145,11 +252,18 @@ class SpanParametersResource(Resource):
                 "con_in": args["con_in"],
                 "con_out": args["con_out"]
             }
+            is_valid, message = validate_span_parameters(span_parameters)
+            if not is_valid:
+                return {"message": message}, 400
 
-            networks_collection.update_one(
-                {"_id": ObjectId(network_id)},
-                {"$set": {"Span": span_parameters}}
-            )
+            # 检查网络是否存在
+            user_id = get_jwt_identity()
+            network = NetworkDB.find_by_network_id(user_id, network_id)
+            if not network:
+                return {"message": f"Network {network_id} not found."}, 404
+
+            # 更新数据库中的跨段参数
+            NetworkDB.update_span_parameters(network_id, span_parameters)
 
             # 返回更新后的跨段参数
             return span_parameters, 200
