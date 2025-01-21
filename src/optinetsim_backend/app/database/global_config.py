@@ -115,16 +115,11 @@ class SimulationConfigResource(Resource):
         if not ObjectId.is_valid(network_id):
             return {"message": "Invalid network ID format."}, 400
 
-        # 定义请求解析器
-        parser = reqparse.RequestParser()
-        parser.add_argument('raman_params', type=dict, required=True, help="Raman parameters are required.")
-        parser.add_argument('nli_params', type=dict, required=True, help="NLI parameters are required.")
-
         try:
             # 获取请求体的JSON内容
-            args = parser.parse_args()
-            raman_params = args['raman_params']
-            nli_params = args['nli_params']
+            data = reqparse.request.get_json()
+            raman_params = data['raman_params']
+            nli_params = data['nli_params']
 
             # 校验 raman_params 和 nli_params 的格式
             is_valid, message = validate_simulation_config(raman_params, nli_params)
@@ -160,34 +155,20 @@ class SpectrumInformationResource(Resource):
         if not ObjectId.is_valid(network_id):
             return {"message": "Invalid network ID format."}, 400
 
-        # 定义请求参数解析器
-        parser = reqparse.RequestParser()
-        parser.add_argument('f_min', type=float, required=True, help="Minimum frequency (f_min) is required.")
-        parser.add_argument('baud_rate', type=float, required=True, help="Baud rate is required.")
-        parser.add_argument('f_max', type=float, required=True, help="Maximum frequency (f_max) is required.")
-        parser.add_argument('spacing', type=float, required=True, help="Channel spacing is required.")
-        parser.add_argument('power_dbm', type=float, required=True, help="Power (dBm) is required.")
-        parser.add_argument('power_range_db', type=list, location='json', required=True,
-                            help="Power range is required.")
-        parser.add_argument('roll_off', type=float, required=True, help="Roll-off factor is required.")
-        parser.add_argument('tx_osnr', type=float, required=True, help="Transmit OSNR is required.")
-        parser.add_argument('sys_margins', type=float, required=True, help="System margins are required.")
-
         try:
-            # 解析请求体参数
-            args = parser.parse_args()
+            data = reqparse.request.get_json()
 
             # 校验频谱信息的格式
             spectrum_info = {
-                "f_min": args["f_min"],
-                "baud_rate": args["baud_rate"],
-                "f_max": args["f_max"],
-                "spacing": args["spacing"],
-                "power_dbm": args["power_dbm"],
-                "power_range_db": args["power_range_db"],
-                "roll_off": args["roll_off"],
-                "tx_osnr": args["tx_osnr"],
-                "sys_margins": args["sys_margins"]
+                "f_min": data["f_min"],
+                "baud_rate": data["baud_rate"],
+                "f_max": data["f_max"],
+                "spacing": data["spacing"],
+                "power_dbm": data["power_dbm"],
+                "power_range_db": data["power_range_db"],
+                "roll_off": data["roll_off"],
+                "tx_osnr": data["tx_osnr"],
+                "sys_margins": data["sys_margins"]
             }
             is_valid, message = validate_spectrum_information(spectrum_info)
             if not is_valid:
@@ -218,39 +199,23 @@ class SpanParametersResource(Resource):
         if not ObjectId.is_valid(network_id):
             return {"message": "Invalid network ID format."}, 400
 
-        # 定义请求解析器
-        parser = reqparse.RequestParser()
-        parser.add_argument('power_mode', type=bool, required=True, help="Power mode is required.")
-        parser.add_argument('delta_power_range_db', type=list, location='json', required=True,
-                            help="Delta power range is required.")
-        parser.add_argument('max_fiber_lineic_loss_for_raman', type=float, required=True,
-                            help="Max fiber lineic loss for Raman is required.")
-        parser.add_argument('target_extended_gain', type=float, required=True, help="Target extended gain is required.")
-        parser.add_argument('max_length', type=float, required=True, help="Max span length is required.")
-        parser.add_argument('length_units', type=str, required=True, help="Length units are required.")
-        parser.add_argument('max_loss', type=float, required=True, help="Max loss is required.")
-        parser.add_argument('padding', type=float, required=True, help="Padding is required.")
-        parser.add_argument('EOL', type=float, required=True, help="End of Life (EOL) is required.")
-        parser.add_argument('con_in', type=float, required=True, help="Input connection loss is required.")
-        parser.add_argument('con_out', type=float, required=True, help="Output connection loss is required.")
-
         try:
             # 获取请求体的 JSON 内容
-            args = parser.parse_args()
+            data = reqparse.request.get_json()
 
             # 校验跨段参数的格式
             span_parameters = {
-                "power_mode": args["power_mode"],
-                "delta_power_range_db": args["delta_power_range_db"],
-                "max_fiber_lineic_loss_for_raman": args["max_fiber_lineic_loss_for_raman"],
-                "target_extended_gain": args["target_extended_gain"],
-                "max_length": args["max_length"],
-                "length_units": args["length_units"],
-                "max_loss": args["max_loss"],
-                "padding": args["padding"],
-                "EOL": args["EOL"],
-                "con_in": args["con_in"],
-                "con_out": args["con_out"]
+                "power_mode": data["power_mode"],
+                "delta_power_range_db": data["delta_power_range_db"],
+                "max_fiber_lineic_loss_for_raman": data["max_fiber_lineic_loss_for_raman"],
+                "target_extended_gain": data["target_extended_gain"],
+                "max_length": data["max_length"],
+                "length_units": data["length_units"],
+                "max_loss": data["max_loss"],
+                "padding": data["padding"],
+                "EOL": data["EOL"],
+                "con_in": data["con_in"],
+                "con_out": data["con_out"]
             }
             is_valid, message = validate_span_parameters(span_parameters)
             if not is_valid:

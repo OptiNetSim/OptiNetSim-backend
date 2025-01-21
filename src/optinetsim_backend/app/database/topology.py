@@ -7,6 +7,118 @@ from bson import ObjectId
 from src.optinetsim_backend.app.database.models import NetworkDB, EquipmentLibraryDB
 
 
+def validate_element_data(data, element_type):
+    """核验输入数据是否符合GNPY文档中的字段定义"""
+    common_fields = {
+        "name": str,  # 元素名称，必须是字符串
+        "type": str,  # 元素类型，必须是字符串
+        "metadata": dict,  # 元数据，必须是字典
+    }
+
+    # 根据元素类型定义不同的字段
+    type_specific_fields = {
+        "Fiber": {
+            "library_id": str,  # 设备库 ID，必须是字符串
+            "type_variety": str,  # 可选，必须是字符串
+            "params": {
+                "length": (int, float),  # 可选，必须是整数或浮点数
+                "length_units": str,  # 可选，必须是字符串
+                "loss_coef": (int, float, dict),  # 可选，必须是整数、浮点数或字典
+                "att_in": (int, float),  # 可选，必须是整数或浮点数
+                "con_in": (int, float),  # 可选，必须是整数或浮点数
+                "con_out": (int, float),  # 可选，必须是整数或浮点数
+            }
+        },
+        "RamanFiber": {
+            "library_id": str,  # 设备库 ID，必须是字符串
+            "type_variety": str,  # 可选，必须是字符串
+            "operational": {
+                "temperature": (int, float),  # 必须是整数或浮点数
+                "raman_pumps": list,  # 必须是列表
+            },
+            "params": {
+                "type_variety": str,  # 可选，必须是字符串
+                "length": (int, float),  # 可选，必须是整数或浮点数
+                "loss_coef": (int, float, dict),  # 可选，必须是整数、浮点数或字典
+                "length_units": str,  # 可选，必须是字符串
+                "att_in": (int, float),  # 可选，必须是整数或浮点数
+                "con_in": (int, float),  # 可选，必须是整数或浮点数
+                "con_out": (int, float),  # 可选，必须是整数或浮点数
+            }
+        },
+        "Edfa": {
+            "library_id": str,  # 设备库 ID，必须是字符串
+            "type_variety": str,  # 可选，必须是字符串
+            "operational": {
+                "gain_target": (int, float),  # 可选，必须是整数或浮点数
+                "delta_p": (int, float),  # 可选，必须是整数或浮点数
+                "out_voa": (int, float),  # 可选，必须是整数或浮点数
+                "in_voa": (int, float),  # 可选，必须是整数或浮点数
+                "tilt_target": (int, float),  # 可选，必须是整数或浮点数
+            }
+        },
+        "Roadm": {
+            "library_id": str,  # 设备库 ID，必须是字符串
+            "type_variety": str,  # 可选，必须是字符串
+            "params": {
+                "target_pch_out_db": (int, float),  # 可选，必须是整数或浮点数
+                "target_psd_out_mWperGHz": (int, float),  # 可选，必须是整数或浮点数
+                "target_out_mWperSlotWidth": (int, float),  # 可选，必须是整数或浮点数
+                "restrictions": dict,  # 可选，必须是字典
+                "per_degree_pch_out_db": dict,  # 可选，必须是字典
+                "per_degree_psd_out_mWperGHz": dict,  # 可选，必须是字典
+                "per_degree_psd_out_mWperSlotWidth": dict,  # 可选，必须是字典
+                "per_degree_impairments": list,  # 可选，必须是列表
+                "design_bands": list,  # 可选，必须是列表
+                "per_degree_design_bands": dict,  # 可选，必须是字典
+            }
+        },
+        "Fused": {
+            "params": {
+                "loss": (int, float),  # 可选，必须是整数或浮点数
+            }
+        },
+        "Transceiver": {
+            "library_id": str,  # 设备库 ID，必须是字符串
+            "type_variety": str,  # 可选，必须是字符串
+            # Transceiver 没有额外的字段
+        }
+    }
+
+    # 检查通用字段
+    for field, field_type in common_fields.items():
+        if field not in data:
+            return False, f"Missing required field: {field}"
+        if not isinstance(data[field], field_type):
+            return False, f"Field {field} must be of type {field_type}"
+
+    # 检查类型特定的字段
+    if element_type in type_specific_fields:
+        type_fields = type_specific_fields[element_type]
+        for field, field_type in type_fields.items():
+            if field in data:
+                if isinstance(field_type, dict):
+                    # 如果是嵌套字典，递归检查
+                    for sub_field, sub_field_type in field_type.items():
+                        if sub_field in data[field]:
+                            if not isinstance(data[field][sub_field], sub_field_type):
+                                return False, f"Field {field}.{sub_field} must be of type {sub_field_type}"
+                else:
+                    if not isinstance(data[field], field_type):
+                        return False, f"Field {field} must be of type {field_type}"
+
+    # 检查是否有未定义的字段
+    allowed_fields = set(common_fields.keys())
+    if element_type in type_specific_fields:
+        allowed_fields.update(type_specific_fields[element_type].keys())
+
+    for field in data.keys():
+        if field not in allowed_fields:
+            return False, f"Undefined field: {field}"
+
+    return True, "Data is valid"
+
+
 class TopologyAddElement(Resource):
     @jwt_required()
     def post(self, network_id):
@@ -17,6 +129,15 @@ class TopologyAddElement(Resource):
         network = NetworkDB.find_by_network_id(user_id, network_id)
         if not network:
             return {"message": "Network not found"}, 404
+
+        # 核验输入数据
+        element_type = data.get("type")
+        if not element_type:
+            return {"message": "Element type is required"}, 400
+
+        is_valid, message = validate_element_data(data, element_type)
+        if not is_valid:
+            return {"message": message}, 400
 
         # 生成 element_id
         data["element_id"] = str(ObjectId())
@@ -47,6 +168,15 @@ class TopologyUpdateElement(Resource):
         network = NetworkDB.find_by_network_id(user_id, network_id)
         if not network:
             return {"message": "Network not found"}, 404
+
+        # 核验输入数据
+        element_type = data.get("type")
+        if not element_type:
+            return {"message": "Element type is required"}, 400
+
+        is_valid, message = validate_element_data(data, element_type)
+        if not is_valid:
+            return {"message": message}, 400
 
         res = NetworkDB.update_element(network_id, element_id, data)
         if res.modified_count > 0:
