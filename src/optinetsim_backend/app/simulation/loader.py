@@ -30,6 +30,8 @@ def transceiver_loader(user_id, element_config):
     config_dict.pop('name')
     config_dict.pop('library_id')
     config_dict.pop('type_variety')
+    # 修改键 element_id 为 uid
+    config_dict['uid'] = config_dict.pop('element_id')
     return elements.Transceiver(**config_dict)
 
 
@@ -41,6 +43,8 @@ def multiband_amplifier_loader(user_id, element_config):
     config_dict.pop('type')
     config_dict.pop('name')
     config_dict.pop('library_id')
+    # 修改键 element_id 为 uid
+    config_dict['uid'] = config_dict.pop('element_id')
     # Load extra parameters from equipment library
     # If type_variety is not provided, use default values
     if 'type_variety' in element_config:
@@ -88,6 +92,8 @@ def fused_loader(user_id, element_config):
     config_dict.pop('name')
     config_dict.pop('library_id')
     config_dict.pop('type_variety')
+    # 修改键 element_id 为 uid
+    config_dict['uid'] = config_dict.pop('element_id')
     return elements.Fused(**config_dict)
 
 
@@ -97,6 +103,8 @@ def fiber_loader(user_id, element_config):
     config_dict.pop('type')
     config_dict.pop('name')
     config_dict.pop('library_id')
+    # 修改键 element_id 为 uid
+    config_dict['uid'] = config_dict.pop('element_id')
     # Load extra parameters from equipment library
     library_id = element_config['library_id']
     if 'type_variety' in element_config:
@@ -128,6 +136,8 @@ def raman_fiber_loader(user_id, element_config):
     config_dict.pop('type')
     config_dict.pop('name')
     config_dict.pop('library_id')
+    # 修改键 element_id 为 uid
+    config_dict['uid'] = config_dict.pop('element_id')
     # Load extra parameters from equipment library
     library_id = element_config['library_id']
     if 'type_variety' in element_config:
@@ -154,6 +164,8 @@ def edfa_loader(user_id, element_config):
     config_dict.pop('type')
     config_dict.pop('name')
     config_dict.pop('library_id')
+    # 修改键 element_id 为 uid
+    config_dict['uid'] = config_dict.pop('element_id')
     # Load extra parameters from equipment library
     if 'type_variety' in element_config:
         element_type_variety = element_config['type_variety']
@@ -175,6 +187,8 @@ def roadm_loader(user_id, element_config):
     config_dict.pop('type')
     config_dict.pop('name')
     config_dict.pop('library_id')
+    # 修改键 element_id 为 uid
+    config_dict['uid'] = config_dict.pop('element_id')
     # Load extra parameters from equipment library
     library_id = element_config['library_id']
     if 'type_variety' in element_config:

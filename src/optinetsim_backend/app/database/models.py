@@ -63,7 +63,7 @@ class NetworkDB:
     @staticmethod
     def update_element(network_id, element_id, element):
         return db.networks.update_one(
-            {"_id": ObjectId(network_id), "elements.uid": element_id},
+            {"_id": ObjectId(network_id), "elements.element_id": element_id},
             {"$set": {"elements.$": element}}
         )
 

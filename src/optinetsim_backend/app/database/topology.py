@@ -18,8 +18,11 @@ class TopologyAddElement(Resource):
         if not network:
             return {"message": "Network not found"}, 404
 
-        # 添加 uid
-        data["uid"] = str(ObjectId())
+        # 生成 element_id
+        data["element_id"] = str(ObjectId())
+
+        # 重新组织数据，使 element_id 位于首个位置
+        data = dict({"element_id": data["element_id"]}, **data)
 
         res = NetworkDB.add_element(network_id, data)
         if res.modified_count > 0:
@@ -36,7 +39,10 @@ class TopologyUpdateElement(Resource):
         data = request.get_json()
 
         # 向 data 中添加 uid
-        data["uid"] = element_id
+        data["element_id"] = element_id
+
+        # 重新组织数据，使 element_id 位于首个位置
+        data = dict({"element_id": data["element_id"]}, **data)
 
         network = NetworkDB.find_by_network_id(user_id, network_id)
         if not network:
