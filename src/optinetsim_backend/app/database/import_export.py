@@ -1,40 +1,51 @@
-from flask_restful import Resource, reqparse
+from flask_restful import Resource
+from flask import Response, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from bson import ObjectId
 from pymongo import MongoClient
+from bson import ObjectId
 from datetime import datetime
+from src.optinetsim_backend.app.config import Config
+from src.optinetsim_backend.app.database.models import NetworkDB
+from collections import OrderedDict
+import json
 
-client = MongoClient("mongodb://localhost:27017/")
-db = client["optinetsim"]  # 数据库名称
-networks_collection = db["networks"]  # 集合名称，用于存储网络数据
-equipment_libraries_collection = db["equipment_libraries"]  # 集合名称，用于存储器件库数据
+client = MongoClient(Config.MONGO_URI)
+db = client.optinetsim
+
 
 class NetworkExportResource(Resource):
-    # 导出指定网络的详细信息，包括器件库
-    @jwt_required()  # JWT鉴权
+    @jwt_required()
     def get(self, network_id):
-        # 确保 network_id 是有效的 ObjectId 格式
-        if not ObjectId.is_valid(network_id):
-            return {"message": "Invalid network ID f_valid(network_id):ormat."}, 400
-
         try:
-            # 查找指定网络的信息
-            network = networks_collection.find_one({"_id": ObjectId(network_id)})
+
+            user_id = get_jwt_identity()
+
+
+            network = NetworkDB.find_by_network_id(user_id, network_id)
             if not network:
-                return {"message": f"Network {network_id} not found."}, 404
+                return {"message": "Network not found or access denied."}, 404
 
-            # 查找网络中使用的器件库信息
-            equipment_libraries = []
-            for library_id in network.get("equipment_libraries", []):
-                library = equipment_libraries_collection.find_one({"_id": ObjectId(library_id)})
-                if library:
-                    equipment_libraries.append({
-                        "library_name": library.get("library_name"),
-                        "equipments": library.get("equipments")
-                    })
 
-            # 构建导出的网络信息
-            exported_network = {
+            network["_id"] = str(network["_id"])
+            network["user_id"] = str(network["user_id"])
+
+
+            equipment_library_id = network.get("equipment_library_id")
+            if not equipment_library_id:
+                return {"message": "No equipment library is associated with this network."}, 404
+
+            equipment_library = db.equipment_libraries.find_one({"_id": ObjectId(equipment_library_id)})
+            if not equipment_library:
+                return {"message": "Equipment library not found."}, 404
+
+
+            equipment_library["_id"] = str(equipment_library["_id"])
+            equipment_library["user_id"] = str(equipment_library["user_id"])
+            equipment_library["created_at"] = equipment_library["created_at"].isoformat() if "created_at" in equipment_library else None
+            equipment_library["updated_at"] = equipment_library["updated_at"].isoformat() if "updated_at" in equipment_library else None
+
+
+            response = OrderedDict({
                 "network_name": network["network_name"],
                 "elements": network.get("elements", []),
                 "connections": network.get("connections", []),
@@ -42,154 +53,293 @@ class NetworkExportResource(Resource):
                 "simulation_config": network.get("simulation_config", {}),
                 "SI": network.get("SI", {}),
                 "Span": network.get("Span", {}),
-                "equipment_libraries": equipment_libraries
-            }
+                "equipment_library": equipment_library
+            })
 
-            # 返回导出的网络信息
-            return exported_network, 200
+
+            return Response(
+                response=json.dumps(response),
+                status=200,
+                mimetype='application/json'
+            )
 
         except Exception as e:
-            return {"message": "An error occurred: " + str(e)}, 500
+            return {"message": str(e)}, 500
+
+
+
+def convert_objectid_and_datetime(data):
+    if isinstance(data, list):
+        return [convert_objectid_and_datetime(item) for item in data]
+    elif isinstance(data, dict):
+        return {
+            key: convert_objectid_and_datetime(value)
+            for key, value in data.items()
+        }
+    elif isinstance(data, ObjectId):
+        return str(data)
+    elif isinstance(data, datetime):
+        return data.isoformat()
+    else:
+        return data
 
 
 class NetworkImportResource(Resource):
-    # 导入网络到系统
-    @jwt_required()  # JWT鉴权
+    @jwt_required()
     def post(self):
-        # 获取当前用户的身份信息（用户ID）
-        current_user_id = get_jwt_identity()
-
-        # 定义请求参数解析器
-        parser = reqparse.RequestParser()
-        parser.add_argument('network_name', type=str, required=True, help="Network name is required.")
-        parser.add_argument('elements', type=list, location='json', required=True, help="Elements are required.")
-        parser.add_argument('connections', type=list, location='json', required=True, help="Connections are required.")
-        parser.add_argument('services', type=list, location='json', required=True, help="Services are required.")
-        parser.add_argument('simulation_config', type=dict, required=True, help="Simulation config is required.")
-        parser.add_argument('SI', type=dict, required=True, help="Spectrum information is required.")
-        parser.add_argument('Span', type=dict, required=True, help="Span parameters are required.")
-        parser.add_argument('equipment_libraries', type=list, location='json', required=True,
-                            help="Equipment libraries are required.")
-
-        # 解析请求体参数
-        args = parser.parse_args()
-
         try:
-            # 将equipment_libraries中的名字转换为ObjectId
-            equipment_libraries_ids = []
-            for library_name in args['equipment_libraries']:
-                # 假设equipment_libraries_collection是你存储器件库信息的集合
-                library = equipment_libraries_collection.find_one({"library_name": library_name})
-                if library:
-                    equipment_libraries_ids.append(library["_id"])  # 取出器件库的ObjectId
-                else:
-                    return {"message": f"Library '{library_name}' not found."}, 404
 
-            # 创建网络对象并插入数据库
-            network_data = {
-                "user_id": current_user_id,  # 使用当前用户的ID
-                "network_name": args['network_name'],
+            user_id = get_jwt_identity()
+
+
+            data = request.get_json()
+            if not data:
+                return {"message": "Invalid request body"}, 400
+
+
+            network_name = data.get("network_name")
+            elements = data.get("elements", [])
+            connections = data.get("connections", [])
+            services = data.get("services", [])
+            simulation_config = data.get("simulation_config", {})
+            SI = data.get("SI", {})
+            Span = data.get("Span", {})
+            equipment_library = data.get("equipment_library")  # 修改为单个设备库
+
+            if not network_name:
+                return {"message": "Network name is required"}, 400
+
+            if not equipment_library:
+                return {"message": "Equipment library is required"}, 400
+
+
+            equipment_library['_id'] = ObjectId()  # 为设备库生成新的 ObjectId
+            equipment_library['user_id'] = ObjectId(user_id)
+            equipment_library['created_at'] = datetime.utcnow()
+            equipment_library['updated_at'] = datetime.utcnow()
+            db.equipment_libraries.insert_one(equipment_library)
+
+
+            equipment_library['_id'] = str(equipment_library['_id'])
+            equipment_library['user_id'] = str(equipment_library['user_id'])
+            equipment_library['created_at'] = equipment_library['created_at'].isoformat()
+            equipment_library['updated_at'] = equipment_library['updated_at'].isoformat()
+
+
+            network = {
+                "user_id": ObjectId(user_id),
+                "network_name": network_name,
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow(),
-                "elements": args['elements'],
-                "connections": args['connections'],
-                "services": args['services'],
-                "simulation_config": args['simulation_config'],
-                "SI": args['SI'],
-                "Span": args['Span'],
-                "equipment_libraries": equipment_libraries_ids  # 存储的是ObjectId
+                "elements": elements,
+                "connections": connections,
+                "services": services,
+                "simulation_config": simulation_config,
+                "SI": SI,
+                "Span": Span,
+                "equipment_library_id": ObjectId(equipment_library['_id'])  # 绑定设备库 ID
             }
 
-            # 插入新网络数据到数据库
-            result = networks_collection.insert_one(network_data)
 
-            # 构建响应数据
-            response = {
+            result = db.networks.insert_one(network)
+
+
+            response = OrderedDict({
                 "network_id": str(result.inserted_id),
-                "network_name": args['network_name'],
-                "created_at": network_data["created_at"].strftime("%Y-%m-%d %H:%M"),
-                "updated_at": network_data["updated_at"].strftime("%Y-%m-%d %H:%M"),
-                "elements": args['elements'],
-                "connections": args['connections'],
-                "services": args['services'],
-                "simulation_config": args['simulation_config'],
-                "SI": args['SI'],
-                "Span": args['Span'],
-                "equipment_libraries": equipment_libraries_ids  # 返回的是ObjectId
-            }
+                "network_name": network_name,
+                "created_at": network["created_at"].strftime("%Y-%m-%d %H:%M"),
+                "updated_at": network["updated_at"].strftime("%Y-%m-%d %H:%M"),
+                "elements": elements,
+                "connections": connections,
+                "services": services,
+                "simulation_config": simulation_config,
+                "SI": SI,
+                "Span": Span,
+                "equipment_library": equipment_library
+            })
 
-            # 返回导入的网络信息
-            return response, 201
-
-        except Exception as e:
-            return {"message": "An error occurred: " + str(e)}, 500
-
-
-class NetworkImportTopologyResource(Resource):
-    # 插入拓扑到现有网络
-    @jwt_required()  # JWT鉴权
-    def post(self, network_id):
-        # 获取当前用户的身份信息（用户ID）
-        current_user_id = get_jwt_identity()
-
-        # 确保 network_id 是有效的 ObjectId 格式
-        if not ObjectId.is_valid(network_id):
-            return {"message": "Invalid network ID format."}, 400
-
-        # 定义请求参数解析器
-        parser = reqparse.RequestParser()
-        parser.add_argument('elements', type=list, location='json', required=True, help="Elements are required.")
-        parser.add_argument('connections', type=list, location='json', required=True, help="Connections are required.")
-        parser.add_argument('services', type=list, location='json', required=True, help="Services are required.")
-        parser.add_argument('simulation_config', type=dict, required=True, help="Simulation config is required.")
-        parser.add_argument('SI', type=dict, required=True, help="Spectrum information is required.")
-        parser.add_argument('Span', type=dict, required=True, help="Span parameters are required.")
-        parser.add_argument('equipment_libraries', type=list, location='json', required=True,
-                            help="Equipment libraries are required.")
-
-        # 解析请求体参数
-        args = parser.parse_args()
-
-        try:
-            # 查找指定网络的信息
-            network = networks_collection.find_one({"_id": ObjectId(network_id)})
-            if not network:
-                return {"message": f"Network {network_id} not found."}, 404
-
-            # 合并拓扑数据
-            updated_network = {
-                "network_name": network["network_name"],
-                "created_at": network["created_at"],  # 保留原创建时间
-                "updated_at": datetime.utcnow(),  # 更新为当前时间
-                "elements": network["elements"] + args['elements'],  # 合并elements
-                "connections": network["connections"] + args['connections'],  # 合并connections
-                "services": network["services"] + args['services'],  # 合并services
-                "simulation_config": {**network["simulation_config"], **args['simulation_config']},  # 合并simulation_config
-                "SI": {**network["SI"], **args['SI']},  # 合并SI
-                "Span": {**network["Span"], **args['Span']},  # 合并Span
-                "equipment_libraries": network["equipment_libraries"] + args['equipment_libraries']  # 合并equipment_libraries
-            }
-
-            # 更新网络拓扑
-            networks_collection.update_one(
-                {"_id": ObjectId(network_id)},
-                {"$set": updated_network}
+            # 使用 json.dumps 保持顺序并返回
+            return Response(
+                response=json.dumps(response),
+                status=200,
+                mimetype='application/json'
             )
 
-            # 返回更新后的网络信息
-            return {
-                "network_id": network_id,
-                "network_name": updated_network["network_name"],
-                "created_at": updated_network["created_at"].strftime("%Y-%m-%d %H:%M"),
-                "updated_at": updated_network["updated_at"].strftime("%Y-%m-%d %H:%M"),
-                "elements": updated_network["elements"],
-                "connections": updated_network["connections"],
-                "services": updated_network["services"],
-                "simulation_config": updated_network["simulation_config"],
-                "SI": updated_network["SI"],
-                "Span": updated_network["Span"],
-                "equipment_libraries": updated_network["equipment_libraries"]
-            }, 200
+        except Exception as e:
+            return {"message": str(e)}, 500
+
+
+
+# 嵌套字典合并函数
+def merge_dicts(old_dict, new_dict):
+    merged = old_dict.copy()
+    for key, value in new_dict.items():
+        if key in merged and isinstance(merged[key], dict) and isinstance(value, dict):
+            merged[key] = merge_dicts(merged[key], value)  # 递归合并子字典
+        else:
+            merged[key] = value  # 使用新值覆盖旧值
+    return merged
+
+
+# 嵌套去重函数
+def remove_duplicates(nested_list):
+    if not nested_list:
+        return []
+
+    seen = set()
+    result = []
+
+    for item in nested_list:
+        if isinstance(item, dict):
+            marker = json.dumps(item, sort_keys=True)
+        else:
+            marker = item
+
+        if marker not in seen:
+            seen.add(marker)
+            result.append(item)
+
+    return result
+
+
+# 递归转换数据类型
+def convert_to_serializable(data):
+    """
+    将 ObjectId 和 datetime 转换为 JSON 可序列化的格式。
+    """
+    if isinstance(data, list):
+        return [convert_to_serializable(item) for item in data]
+    elif isinstance(data, dict):
+        return {key: convert_to_serializable(value) for key, value in data.items()}
+    elif isinstance(data, ObjectId):
+        return str(data)
+    elif isinstance(data, datetime):
+        return data.isoformat()  # 转换为 ISO 格式
+    else:
+        return data
+
+
+class TopologyImportResource(Resource):
+    @jwt_required()
+    def post(self, network_id):
+        try:
+            # 获取当前用户 ID
+            user_id = get_jwt_identity()
+
+            # 查询目标网络是否存在并属于当前用户
+            network = db.networks.find_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)})
+            if not network:
+                return {"message": "Network not found or access denied."}, 404
+
+            # 获取请求数据
+            data = request.get_json()
+            if not data:
+                return {"message": "Invalid request body"}, 400
+
+            # 提取拓扑相关数据
+            elements = data.get("elements", [])
+            connections = data.get("connections", [])
+            services = data.get("services", [])
+            simulation_config = data.get("simulation_config", {})
+            SI = data.get("SI", {})
+            Span = data.get("Span", {})
+            equipment_library = data.get("equipment_library")  # 修改为单个设备库
+
+            if not equipment_library:
+                return {"message": "Equipment library is required."}, 400
+
+            # 查询网络绑定的设备库
+            equipment_library_id = network.get("equipment_library_id")
+
+            # 检查设备库是否已绑定
+            if not equipment_library_id:
+                # 如果设备库未绑定，则创建新的设备库并绑定
+                equipment_library['_id'] = ObjectId()
+                equipment_library['user_id'] = ObjectId(user_id)
+                equipment_library['created_at'] = datetime.utcnow()
+                equipment_library['updated_at'] = datetime.utcnow()
+                db.equipment_libraries.insert_one(equipment_library)
+
+                # 更新网络绑定的设备库 ID
+                equipment_library_id = equipment_library['_id']
+                db.networks.update_one(
+                    {"_id": ObjectId(network_id)},
+                    {"$set": {"equipment_library_id": equipment_library_id}}
+                )
+            else:
+                # 如果设备库已绑定，则更新设备库
+                existing_library = db.equipment_libraries.find_one({"_id": ObjectId(equipment_library_id)})
+                if not existing_library:
+                    return {"message": "Bound equipment library not found."}, 404
+
+                for category, new_equipments in equipment_library.get("equipments", {}).items():
+                    existing_equipments = existing_library["equipments"].get(category, [])
+                    combined_equipments = list(set(existing_equipments + new_equipments))
+                    existing_library["equipments"][category] = combined_equipments
+
+                db.equipment_libraries.update_one(
+                    {"_id": ObjectId(equipment_library_id)},
+                    {
+                        "$set": {
+                            "equipments": existing_library["equipments"],
+                            "updated_at": datetime.utcnow()
+                        }
+                    }
+                )
+
+            # 更新拓扑数据
+            updated_elements = remove_duplicates(network.get("elements", []) + elements)
+            updated_connections = remove_duplicates(network.get("connections", []) + connections)
+            updated_services = remove_duplicates(network.get("services", []) + services)
+
+            updated_SI = merge_dicts(network.get("SI", {}), SI)
+            updated_Span = merge_dicts(network.get("Span", {}), Span)
+
+            # 更新网络数据
+            db.networks.update_one(
+                {"_id": ObjectId(network_id)},
+                {
+                    "$set": {
+                        "elements": updated_elements,
+                        "connections": updated_connections,
+                        "services": updated_services,
+                        "simulation_config": simulation_config,
+                        "SI": updated_SI,
+                        "Span": updated_Span,
+                        "updated_at": datetime.utcnow()
+                    }
+                }
+            )
+
+            # 构建响应数据
+            equipment_library_response = db.equipment_libraries.find_one({"_id": ObjectId(equipment_library_id)})
+            equipment_library_response["_id"] = str(equipment_library_response["_id"])
+            equipment_library_response["user_id"] = str(equipment_library_response["user_id"])
+            equipment_library_response["created_at"] = equipment_library_response["created_at"].isoformat()
+            equipment_library_response["updated_at"] = equipment_library_response["updated_at"].isoformat()
+
+            response = OrderedDict({
+                "network_id": str(network["_id"]),
+                "network_name": network["network_name"],
+                "created_at": network["created_at"].strftime("%Y-%m-%d %H:%M"),
+                "updated_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M"),
+                "elements": updated_elements,
+                "connections": updated_connections,
+                "services": updated_services,
+                "simulation_config": simulation_config,
+                "SI": updated_SI,
+                "Span": updated_Span,
+                "equipment_library": convert_to_serializable(equipment_library_response)
+            })
+
+            # 返回响应数据
+            return Response(
+                response=json.dumps(response),
+                status=200,
+                mimetype='application/json'
+            )
 
         except Exception as e:
-            return {"message": "An error occurred: " + str(e)}, 500
+            return {"message": str(e)}, 500
+
+
