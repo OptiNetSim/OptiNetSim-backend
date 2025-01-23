@@ -21,7 +21,7 @@ from .global_config import (
 from .import_export111 import (
     NetworkExportResource,
     NetworkImportResource,
-    NetworkImportTopologyResource
+    TopologyImportResource
 )
 __all__ = [
     'NetworkList',
@@ -40,5 +40,5 @@ __all__ = [
     'SpanParametersResource',
     'NetworkExportResource',
     'NetworkImportResource',
-    'NetworkImportTopologyResource',
+    'TopologyImportResource',
 ]
