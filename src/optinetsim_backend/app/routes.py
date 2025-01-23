@@ -38,7 +38,7 @@ def api_init_app(app):
     # 导入和导出
     api.add_resource(NetworkExportResource, '/api/networks/<string:network_id>/export')
     api.add_resource(NetworkImportResource, '/api/networks/import')
-    api.add_resource(NetworkImportTopologyResource, '/api/networks/<string:network_id>/import')
+    api.add_resource(TopologyImportResource, '/api/networks/<string:network_id>/import')
     # 仿真相关接口
     # TODO: API resource for simulation
 
