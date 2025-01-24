@@ -52,7 +52,6 @@ def multiband_amplifier_loader(user_id, element_config):
         extra_params = EquipmentLibraryDB.find_by_type_variety(user_id, library_id, 'Edfa', element_type_variety)
         if not extra_params:
             raise ConfigurationError(f'Multiband amplifier "{element_type_variety}" not found in library')
-        extra_params = extra_params['params']
         temp = element_config.setdefault('params', {})
         temp = merge_amplifier_restrictions(temp, deepcopy(extra_params))
         config_dict['params'] = temp
@@ -112,7 +111,6 @@ def fiber_loader(user_id, element_config):
         extra_params = EquipmentLibraryDB.find_by_type_variety(user_id, library_id, 'Fiber', element_type_variety)
         if not extra_params:
             raise ConfigurationError(f'Fiber "{element_type_variety}" not found in library')
-        extra_params = extra_params['params']
         temp = element_config.setdefault('params', {})
         # # Debug
         # print('Element config', element_config)
@@ -145,7 +143,6 @@ def raman_fiber_loader(user_id, element_config):
         extra_params = EquipmentLibraryDB.find_by_type_variety(user_id, library_id, 'Fiber', element_type_variety)
         if not extra_params:
             raise ConfigurationError(f'Fiber "{element_type_variety}" not found in library')
-        extra_params = extra_params['params']
         temp = element_config.setdefault('params', {})
         temp = merge_amplifier_restrictions(temp, deepcopy(extra_params))
         config_dict['params'] = temp
@@ -172,7 +169,6 @@ def edfa_loader(user_id, element_config):
         extra_params = EquipmentLibraryDB.find_by_type_variety(user_id, library_id, 'Edfa', element_type_variety)
         if not extra_params:
             raise ConfigurationError(f'Edfa "{element_type_variety}" not found in library')
-        extra_params = extra_params['params']
         temp = element_config.setdefault('params', {})
         temp = merge_amplifier_restrictions(temp, deepcopy(extra_params))
         config_dict['params'] = temp
@@ -196,7 +192,6 @@ def roadm_loader(user_id, element_config):
         extra_params = EquipmentLibraryDB.find_by_type_variety(user_id, library_id, 'Roadm', element_type_variety)
         if not extra_params:
             raise ConfigurationError(f'Roadm "{element_type_variety}" not found in library')
-        extra_params = extra_params['params']
         temp = element_config.setdefault('params', {})
         extra_params = merge_equalization(temp, extra_params)
         temp = merge_amplifier_restrictions(temp, deepcopy(extra_params))

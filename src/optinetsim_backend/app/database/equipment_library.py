@@ -10,6 +10,7 @@ from src.optinetsim_backend.app.database.models import EquipmentLibraryDB
 def validate_edfa_params(params):
     # 定义所有可能的字段及其类型
     valid_fields = {
+        "type_variety": str,  # 类型定义
         "type_def": str,  # 类型定义
         "gain_flatmax": (float, int),  # 最大平坦增益
         "gain_min": (float, int),  # 最小增益
@@ -36,6 +37,7 @@ def validate_edfa_params(params):
 def validate_fiber_params(params):
     # 定义所有可能的字段及其类型
     valid_fields = {
+        "type_variety": str,  # 类型定义
         "dispersion": (float, int),  # 色散
         "dispersion_slope": (float, int),  # 色散斜率
         "dispersion_per_frequency": dict,  # 频率相关的色散
@@ -80,6 +82,7 @@ def validate_fiber_params(params):
 def validate_raman_fiber_params(params):
     # 定义 Fiber 的所有字段及其类型
     fiber_fields = {
+        "type_variety": str,  # 类型定义
         "dispersion": (float, int),  # 色散
         "dispersion_slope": (float, int),  # 色散斜率
         "dispersion_per_frequency": dict,  # 频率相关的色散
@@ -157,6 +160,7 @@ def validate_raman_fiber_params(params):
 def validate_roadm_params(params):
     # 定义所有可能的字段及其类型
     valid_fields = {
+        "type_variety": str,  # 类型定义
         "target_pch_out_db": (float, int),  # 目标输出功率
         "add_drop_osnr": (float, int),  # 添加/丢弃 OSNR
         "pmd": (float, int),  # PMD
@@ -215,6 +219,7 @@ def validate_transceiver_params(params):
 
             # 定义 mode 中可能的字段及其类型
             valid_mode_fields = {
+                "type_variety": str,  # 类型定义
                 "format": str,  # 格式描述
                 "baud_rate": (float, int),  # 波特率
                 "OSNR": (float, int),  # 最小 OSNR 要求
@@ -325,15 +330,15 @@ class EquipmentAddResource(Resource):
 
         # 根据设备类型调用相应的校验函数
         if category == "Edfa":
-            is_valid, message = validate_edfa_params(equipment.get("params", {}))
+            is_valid, message = validate_edfa_params(equipment)
         elif category == "Fiber":
-            is_valid, message = validate_fiber_params(equipment.get("params", {}))
+            is_valid, message = validate_fiber_params(equipment)
         elif category == "RamanFiber":
-            is_valid, message = validate_raman_fiber_params(equipment.get("params", {}))
+            is_valid, message = validate_raman_fiber_params(equipment)
         elif category == "Roadm":
-            is_valid, message = validate_roadm_params(equipment.get("params", {}))
+            is_valid, message = validate_roadm_params(equipment)
         elif category == "Transceiver":
-            is_valid, message = validate_transceiver_params(equipment.get("params", {}))
+            is_valid, message = validate_transceiver_params(equipment)
         else:
             return {"message": "Invalid category"}, 400
 
@@ -345,10 +350,7 @@ class EquipmentAddResource(Resource):
 
         if success:
             # 返回添加成功的器件信息
-            return {
-                "type_variety": equipment["type_variety"],
-                "params": equipment["params"]
-            }, 201
+            return equipment, 201
         else:
             return {"message": "Equipment already exists, can not add this equipment."}, 400
 
@@ -361,19 +363,19 @@ class EquipmentUpdateResource(Resource):
         if not library or library['user_id'] != ObjectId(user_id):
             return {"message": "Library not found or not authorized"}, 404
 
-        params = request.json.get('params')
+        equipment = request.json
 
         # 根据设备类型调用相应的校验函数
         if category == "Edfa":
-            is_valid, message = validate_edfa_params(params)
+            is_valid, message = validate_edfa_params(equipment)
         elif category == "Fiber":
-            is_valid, message = validate_fiber_params(params)
+            is_valid, message = validate_fiber_params(equipment)
         elif category == "RamanFiber":
-            is_valid, message = validate_raman_fiber_params(params)
+            is_valid, message = validate_raman_fiber_params(equipment)
         elif category == "Roadm":
-            is_valid, message = validate_roadm_params(params)
+            is_valid, message = validate_roadm_params(equipment)
         elif category == "Transceiver":
-            is_valid, message = validate_transceiver_params(params)
+            is_valid, message = validate_transceiver_params(equipment)
         else:
             return {"message": "Invalid category"}, 400
 
@@ -381,14 +383,11 @@ class EquipmentUpdateResource(Resource):
             return {"message": message}, 400
 
         # 调用 update_equipment 方法并传递器件库ID、类别、器件类型和新参数
-        success = EquipmentLibraryDB.update_equipment(library_id, category, type_variety, params)
+        success = EquipmentLibraryDB.update_equipment(library_id, category, type_variety, equipment)
 
         if success:
             # 返回更新后的器件信息
-            return {
-                "type_variety": type_variety,
-                "params": params
-            }, 200
+            return equipment, 200
         else:
             return {"message": "Equipment not found."}, 404
 

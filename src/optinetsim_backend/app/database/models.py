@@ -191,12 +191,12 @@ class EquipmentLibraryDB:
 
     # 更新器件的方法
     @staticmethod
-    def update_equipment(library_id, category, type_variety, params):
+    def update_equipment(library_id, category, type_variety, equipment_update):
         library = db.equipment_libraries.find_one({"_id": ObjectId(library_id)})
         if library and category in library['equipments']:
             equipment = next((e for e in library['equipments'][category] if e['type_variety'] == type_variety), None)
             if equipment:
-                equipment['params'] = params
+                equipment = equipment_update
                 db.equipment_libraries.update_one(
                     {"_id": ObjectId(library_id)},
                     {"$set": {"equipments": library['equipments'], "updated_at": datetime.utcnow()}}
