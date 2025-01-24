@@ -63,7 +63,7 @@ class NetworkDB:
     @staticmethod
     def update_element(network_id, element_id, element):
         return db.networks.update_one(
-            {"_id": ObjectId(network_id), "elements.uid": element_id},
+            {"_id": ObjectId(network_id), "elements.element_id": element_id},
             {"$set": {"elements.$": element}}
         )
 
@@ -86,6 +86,27 @@ class NetworkDB:
     def delete_by_network_id(user_id, network_id):
         # 删除网络并返回删除成功与否
         return db.networks.delete_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)}).deleted_count
+
+    @staticmethod
+    def update_simulation_config(network_id, simulation_config):
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$set": {"simulation_config": simulation_config}}
+        )
+
+    @staticmethod
+    def update_spectrum_information(network_id, spectrum_information):
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$set": {"SI": spectrum_information}}
+        )
+
+    @staticmethod
+    def update_span_parameters(network_id, span_parameters):
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$set": {"Span": span_parameters}}
+        )
 
 
 class EquipmentLibraryDB:
@@ -170,12 +191,12 @@ class EquipmentLibraryDB:
 
     # 更新器件的方法
     @staticmethod
-    def update_equipment(library_id, category, type_variety, params):
+    def update_equipment(library_id, category, type_variety, equipment_update):
         library = db.equipment_libraries.find_one({"_id": ObjectId(library_id)})
         if library and category in library['equipments']:
             equipment = next((e for e in library['equipments'][category] if e['type_variety'] == type_variety), None)
             if equipment:
-                equipment['params'] = params
+                equipment = equipment_update
                 db.equipment_libraries.update_one(
                     {"_id": ObjectId(library_id)},
                     {"$set": {"equipments": library['equipments'], "updated_at": datetime.utcnow()}}

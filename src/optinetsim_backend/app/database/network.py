@@ -27,7 +27,11 @@ class NetworkList(Resource):
         user_id = get_jwt_identity()
         network_name = request.json.get('network_name', None)
         network = NetworkDB.create(user_id, network_name)
-        return {'network_id': str(network.inserted_id)}, 201
+        return {
+            'network_id': str(network.inserted_id),
+            'network_name': network_name,
+            'created_at': network.inserted_id.generation_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        }, 201
 
 
 class NetworkResource(Resource):
