@@ -21,6 +21,10 @@ class UserDB:
     def find_by_username(username):
         return db.users.find_one({"username": username})
 
+    @staticmethod
+    def delete_by_userid(user_id):
+        return db.users.delete_one({"_id": ObjectId(user_id)}).deleted_count > 0
+
 
 class NetworkDB:
     @staticmethod
@@ -71,7 +75,7 @@ class NetworkDB:
     def delete_by_element_id(network_id, element_id):
         return db.networks.update_one(
             {"_id": ObjectId(network_id)},
-            {"$pull": {"elements": {"uid": element_id}}}
+            {"$pull": {"elements": {"element_id": element_id}}}
         )
 
     @staticmethod
@@ -86,6 +90,11 @@ class NetworkDB:
     def delete_by_network_id(user_id, network_id):
         # 删除网络并返回删除成功与否
         return db.networks.delete_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)}).deleted_count
+
+    @staticmethod
+    def delete_by_user_id(user_id):
+        # 删除用户的所有网络并返回删除成功与否
+        return db.networks.delete_many({"user_id": ObjectId(user_id)}).deleted_count
 
     @staticmethod
     def update_simulation_config(network_id, simulation_config):
@@ -160,6 +169,10 @@ class EquipmentLibraryDB:
     def delete(library_id):
         result = db.equipment_libraries.delete_one({"_id": ObjectId(library_id)})
         return result.deleted_count > 0
+
+    @staticmethod
+    def delete_by_user_id(user_id):
+        return db.equipment_libraries.delete_many({"user_id": ObjectId(user_id)}).deleted_count
 
     # 新增器件的方法
     @staticmethod

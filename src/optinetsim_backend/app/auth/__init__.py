@@ -1,4 +1,4 @@
-from .auth import LoginResource, RegisterResource
+from .auth import LoginResource, RegisterResource, UserResource
 
 
-__all__ = ['LoginResource', 'RegisterResource']
+__all__ = ['LoginResource', 'RegisterResource', 'UserResource']

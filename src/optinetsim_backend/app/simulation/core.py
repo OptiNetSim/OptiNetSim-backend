@@ -59,6 +59,6 @@ def simulate_network(user_id, network_id, source_uid, destination_uid, initial_s
 
 # Debug
 if __name__ == '__main__':
-    simulate_network('6707bbb1a58be0ffa5d05618', '678f5440e5f401757cf63e60',
+    simulate_network('67944bc22939d50866927b26', '67944be42939d50866927b27',
                      'source_uid', 'destination_uid')
     print('Simulation completed successfully')

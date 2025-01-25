@@ -39,6 +39,9 @@ class NetworkResource(Resource):
     def get(self, network_id):
         user_id = get_jwt_identity()
         networks = NetworkDB.find_by_network_id(user_id, network_id)
+        # 若无法找到网络，则返回 404
+        if not networks:
+            return {'message': 'Network not found'}, 404
         # ObjectId 转换为字符串
         networks['_id'] = str(networks['_id'])
         networks['user_id'] = str(networks['user_id'])
