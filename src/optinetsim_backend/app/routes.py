@@ -11,6 +11,7 @@ def api_init_app(app):
     # 用户认证相关接口
     api.add_resource(LoginResource, '/api/auth/login')
     api.add_resource(RegisterResource, '/api/auth/register')
+    api.add_resource(UserResource, '/api/auth/delete')
 
     # 网络相关接口
     api.add_resource(NetworkList, '/api/networks')

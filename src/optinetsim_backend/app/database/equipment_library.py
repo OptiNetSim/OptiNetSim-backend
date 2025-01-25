@@ -193,6 +193,7 @@ def validate_roadm_params(params):
 def validate_transceiver_params(params):
     # 定义所有可能的字段及其类型
     valid_fields = {
+        "type_variety": str,  # 类型定义
         "frequency": dict,  # 频率范围
         "mode": list  # 支持的传输模式
     }
