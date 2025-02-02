@@ -23,14 +23,29 @@ from gnpy.tools.json_io import Amp, merge_equalization
 from src.optinetsim_backend.app.database.models import NetworkDB, EquipmentLibraryDB
 
 
-# Transceiver element loader
 def transceiver_loader(user_id, element_config):
+    """
+    将网络元素配置转换为对应的元素节点。
+
+    :param user_id: 用户ID
+    :param element_config: 网络元素配置
+    :return: 转换后的元素节点
+    """
+    # 复制元素配置并移除不必要的字段
     config_dict = deepcopy(element_config)
+    """
+    deepcopy(element_config): 
+    这是一个函数调用，它接受一个参数element_config，这个参数是一个字典，
+    包含了网络元素的配置信息。deepcopy函数会创建一个新的字典，这个新字典的内容与element_config完全相同，
+    但是它们是两个独立的对象，对新字典的任何修改都不会影响原始的element_config。
+    """
     config_dict.pop('type')
     config_dict.pop('name')
     config_dict.pop('library_id')
     config_dict.pop('type_variety')
-    return elements.Transceiver(**config_dict)
+    # 返回转换后的元素节点
+    return elements.Transceiver(**config_dict)# 将字典中的键值对解包为关键字参数
+
 
 
 # Multiband amplifier element loader
@@ -166,6 +181,7 @@ def edfa_loader(user_id, element_config):
         config_dict['params'] = temp
     else:
         config_dict['params'] = Amp.default_values
+    print(config_dict)
     return elements.Edfa(**config_dict)
 
 
@@ -194,9 +210,17 @@ def roadm_loader(user_id, element_config):
     return elements.Roadm(**config_dict)
 
 
-# Convert element config to element node
 def convert_to_element_node(user_id, element_config):
+    """
+    将网络元素配置转换为对应的元素节点。
+
+    :param user_id: 用户ID
+    :param element_config: 网络元素配置
+    :return: 转换后的元素节点
+    """
+    # 获取网络元素的类型
     element_type = element_config['type']
+    # 根据元素类型调用相应的加载器函数
     if element_type == 'Transceiver':
         return transceiver_loader(user_id, element_config)
     elif element_type == 'Multiband_amplifier':
@@ -211,48 +235,116 @@ def convert_to_element_node(user_id, element_config):
         return edfa_loader(user_id, element_config)
     elif element_type == 'Roadm':
         return roadm_loader(user_id, element_config)
+    # 如果元素类型未知，则抛出异常
     else:
         raise ConfigurationError(f'Unknown network equipment "{element_type}"')
 
 
-# Load network from database and convert to networkx graph
 def load_network_from_database(user_id, network_id):
+    """
+    从数据库中加载网络配置，并将其转换为一个有向图（DiGraph）。
+
+    :param user_id: 用户ID
+    :param network_id: 网络ID
+    :return: 转换后的有向图（DiGraph）
+    """
+    # 从数据库中查找指定网络ID的网络配置
     network = NetworkDB.find_by_network_id(user_id, network_id)
+    # 如果未找到网络配置，则返回None
     if not network:
         return None
+    # 创建一个有向图（DiGraph）
     g = DiGraph()
-    # Add elements to network
+
+    # 用于存储所有的器件库ID
+    library_ids = set()
+
+    # 遍历网络配置中的每个元素
     for element_config in network['elements']:
+        # 提取library_id并加入集合
+        library_ids.add(element_config['library_id'])
+        # 将元素配置转换为元素节点（对象），并添加到有向图中
         g.add_node(convert_to_element_node(user_id, element_config))
 
+    # 创建一个字典，用于存储节点的UID和节点对象
     nodes = {k.uid: k for k in g.nodes()}
 
+    # 遍历网络配置中的每个连接
     for cx in network['connections']:
+        # 获取连接的起始节点和终止节点
         from_node, to_node = cx['from_node'], cx['to_node']
         try:
+            # 如果起始节点是光纤（Fiber），则获取光纤的长度作为边的权重
             if isinstance(nodes[from_node], elements.Fiber):
                 edge_length = nodes[from_node].params.length
+            # 否则，将边的权重设置为0.01
             else:
                 edge_length = 0.01
+            # 在有向图中添加一条边，连接起始节点和终止节点，并设置边的权重
             g.add_edge(nodes[from_node], nodes[to_node], weight=edge_length)
+        # 如果起始节点或终止节点未在有向图中找到，则抛出异常
         except KeyError:
             msg = f'can not find {from_node} or {to_node} defined in {cx}'
             raise NetworkTopologyError(msg)
 
-    return g
+    # 返回转换后的有向图
+    return g, library_ids
 
 
-# Load spectral information from the database
 def load_spectral_information_from_database(user_id, network_id):
+    """
+    从数据库中加载光谱信息。
+
+    :param user_id: 用户ID
+    :param network_id: 网络ID
+    :return: 光谱信息，如果未找到则返回None
+    """
+    # 从数据库中查找指定网络ID的网络配置
     network = NetworkDB.find_by_network_id(user_id, network_id)
+    # 如果未找到网络配置，则返回None
     if not network:
         return None
+    # 返回光谱信息
     return network['SI']
 
 
-# Load span information from the database
+
 def load_span_information_from_database(user_id, network_id):
+    """
+    从数据库中加载跨度信息。
+
+    :param user_id: 用户ID
+    :param network_id: 网络ID
+    :return: 跨度信息，如果未找到则返回None
+    """
+    # 从数据库中查找指定网络ID的网络配置
     network = NetworkDB.find_by_network_id(user_id, network_id)
+    # 如果未找到网络配置，则返回None
     if not network:
         return None
+    # 返回跨度信息
     return network['Span']
+
+
+def load_equipment_from_database(user_id, library_ids):
+    """
+    从数据库中加载指定库ID的所有设备。
+    :param user_id: 用户ID
+    :param library_ids: 库ID列表
+    :return: 设备列表
+    """
+    # 初始化一个空列表，用于存储所有设备
+    equipment = []
+
+    for library_id in library_ids:
+        # 从数据库中查找指定库ID的设备
+        library = EquipmentLibraryDB.find_by_id(library_id)
+
+        # 验证用户权限
+        if not library or library['user_id'] != user_id:
+            return {"message": f"Library with ID {library_id} not found or not authorized"}, 404
+
+        # 获取设备列表并添加到返回结果
+        equipment.extend(library['equipments'])
+
+    return equipment, 200

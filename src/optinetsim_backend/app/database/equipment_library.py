@@ -86,7 +86,7 @@ class EquipmentAddResource(Resource):
             # 返回添加成功的器件信息
             return {
                 "type_variety": equipment["type_variety"],
-                "params": equipment["params"]
+                **equipment,
             }, 201
         else:
             return {"message": "Category does not exist or invalid data"}, 400
