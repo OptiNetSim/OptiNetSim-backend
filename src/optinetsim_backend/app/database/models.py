@@ -21,6 +21,10 @@ class UserDB:
     def find_by_username(username):
         return db.users.find_one({"username": username})
 
+    @staticmethod
+    def delete_by_userid(user_id):
+        return db.users.delete_one({"_id": ObjectId(user_id)}).deleted_count > 0
+
 
 class NetworkDB:
     @staticmethod
@@ -63,7 +67,7 @@ class NetworkDB:
     @staticmethod
     def update_element(network_id, element_id, element):
         return db.networks.update_one(
-            {"_id": ObjectId(network_id), "elements.uid": element_id},
+            {"_id": ObjectId(network_id), "elements.element_id": element_id},
             {"$set": {"elements.$": element}}
         )
 
@@ -71,7 +75,7 @@ class NetworkDB:
     def delete_by_element_id(network_id, element_id):
         return db.networks.update_one(
             {"_id": ObjectId(network_id)},
-            {"$pull": {"elements": {"uid": element_id}}}
+            {"$pull": {"elements": {"element_id": element_id}}}
         )
 
     @staticmethod
@@ -87,6 +91,63 @@ class NetworkDB:
         # 删除网络并返回删除成功与否
         return db.networks.delete_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)}).deleted_count
 
+    @staticmethod
+    def delete_by_user_id(user_id):
+        # 删除用户的所有网络并返回删除成功与否
+        return db.networks.delete_many({"user_id": ObjectId(user_id)}).deleted_count
+
+    @staticmethod
+    def update_simulation_config(network_id, simulation_config):
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$set": {"simulation_config": simulation_config}}
+        )
+
+    @staticmethod
+    def update_spectrum_information(network_id, spectrum_information):
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$set": {"SI": spectrum_information}}
+        )
+
+    @staticmethod
+    def update_span_parameters(network_id, span_parameters):
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$set": {"Span": span_parameters}}
+        )
+
+    @staticmethod
+    def add_connection(network_id, connection_data):
+        """向指定网络添加连接关系"""
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$push": {"connections": connection_data}}
+        )
+
+    @staticmethod
+    def update_connection(network_id, connection_id, update_data):
+        """更新指定网络的连接关系"""
+        return db.networks.update_one(
+            {
+                "_id": ObjectId(network_id),
+                "connections.connection_id": connection_id
+            },
+            {
+                "$set": {
+                    "connections.$.from_node": update_data["from_node"],
+                    "connections.$.to_node": update_data["to_node"]
+                }
+            }
+        )
+
+    @staticmethod
+    def delete_connection(network_id, connection_id):
+        """从指定网络删除连接关系"""
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$pull": {"connections": {"connection_id": connection_id}}}
+        )
 
 class EquipmentLibraryDB:
     @staticmethod
@@ -140,6 +201,10 @@ class EquipmentLibraryDB:
         result = db.equipment_libraries.delete_one({"_id": ObjectId(library_id)})
         return result.deleted_count > 0
 
+    @staticmethod
+    def delete_by_user_id(user_id):
+        return db.equipment_libraries.delete_many({"user_id": ObjectId(user_id)}).deleted_count
+
     # 新增器件的方法
     @staticmethod
     def add_equipment(library_id, category, equipment):
@@ -170,12 +235,12 @@ class EquipmentLibraryDB:
 
     # 更新器件的方法
     @staticmethod
-    def update_equipment(library_id, category, type_variety, params):
+    def update_equipment(library_id, category, type_variety, equipment_update):
         library = db.equipment_libraries.find_one({"_id": ObjectId(library_id)})
         if library and category in library['equipments']:
             equipment = next((e for e in library['equipments'][category] if e['type_variety'] == type_variety), None)
             if equipment:
-                equipment['params'] = params
+                equipment = equipment_update
                 db.equipment_libraries.update_one(
                     {"_id": ObjectId(library_id)},
                     {"$set": {"equipments": library['equipments'], "updated_at": datetime.utcnow()}}

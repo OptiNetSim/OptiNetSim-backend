@@ -27,7 +27,11 @@ class NetworkList(Resource):
         user_id = get_jwt_identity()
         network_name = request.json.get('network_name', None)
         network = NetworkDB.create(user_id, network_name)
-        return {'network_id': str(network.inserted_id)}, 201
+        return {
+            'network_id': str(network.inserted_id),
+            'network_name': network_name,
+            'created_at': network.inserted_id.generation_time.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        }, 201
 
 
 class NetworkResource(Resource):
@@ -35,6 +39,9 @@ class NetworkResource(Resource):
     def get(self, network_id):
         user_id = get_jwt_identity()
         networks = NetworkDB.find_by_network_id(user_id, network_id)
+        # 若无法找到网络，则返回 404
+        if not networks:
+            return {'message': 'Network not found'}, 404
         # ObjectId 转换为字符串
         networks['_id'] = str(networks['_id'])
         networks['user_id'] = str(networks['user_id'])
