@@ -10,13 +10,15 @@ from .equipment_library import (
 from .topology import (
     TopologyAddElement,
     TopologyUpdateElement,
-    TopologyDeleteElement
+    TopologyDeleteElement,
+    ConnectionAdd,
+    ConnectionUpdate,
+    ConnectionDelete
 )
 from .global_config import (
     SimulationConfigResource,
     SpectrumInformationResource,
     SpanParametersResource
-
 )
 
 __all__ = [
@@ -31,6 +33,9 @@ __all__ = [
     'TopologyAddElement',
     'TopologyUpdateElement',
     'TopologyDeleteElement',
+    'ConnectionAdd',
+    'ConnectionUpdate',
+    'ConnectionDelete',
     'SimulationConfigResource',
     'SpectrumInformationResource',
     'SpanParametersResource',

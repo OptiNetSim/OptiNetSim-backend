@@ -10,7 +10,7 @@ from src.optinetsim_backend.app.database.models import NetworkDB, EquipmentLibra
 def validate_element_data(data, element_type):
     """核验输入数据是否符合GNPY文档中的字段定义"""
     common_fields = {
-        "name": str,  # 元素名称，必须是字符串
+        "uid": str,  # 元素名称，必须是字符串
         "type": str,  # 元素类型，必须是字符串
         "metadata": dict,  # 元数据，必须是字典
     }
@@ -225,3 +225,109 @@ class TopologyDeleteElement(Resource):
             return {"message": "Element deleted successfully"}, 200
         else:
             return {"message": "Element not found"}, 404
+
+
+# 连接管理实现
+def validate_connection_data(network, data):
+    """验证连接数据有效性"""
+    required_fields = ["from_node", "to_node"]
+
+    for field in required_fields:
+        if field not in data:
+            return False, f"Missing required field: {field}"
+
+    # 检查节点是否存在
+    from_node_exists = any(str(e["uid"]) == data["from_node"] for e in network["elements"])
+    to_node_exists = any(str(e["uid"]) == data["to_node"] for e in network["elements"])
+
+    if not from_node_exists:
+        return False, "from_node does not exist"
+    if not to_node_exists:
+        return False, "to_node does not exist"
+
+    return True, "Data is valid"
+
+
+class ConnectionAdd(Resource):
+    @jwt_required()
+    def post(self, network_id):
+        """创建连接关系"""
+        user_id = get_jwt_identity()
+        data = request.get_json()
+
+        network = NetworkDB.find_by_network_id(user_id, network_id)
+        if not network:
+            return {"message": "Network not found"}, 404
+
+        # 数据验证
+        is_valid, message = validate_connection_data(network, data)
+        if not is_valid:
+            return {"message": message}, 400
+
+        # 生成唯一连接ID
+        connection_id = str(ObjectId())
+        connection_data = {
+            "connection_id": connection_id,
+            "from_node": data["from_node"],
+            "to_node": data["to_node"]
+        }
+        # 添加连接
+        update_result = NetworkDB.add_connection(network_id, connection_data)
+        if update_result.modified_count == 0:
+            return {"message": "Failed to create connection"}, 400
+
+        return connection_data, 201
+
+
+class ConnectionUpdate(Resource):
+    @jwt_required()
+    def put(self, network_id, connection_id):
+        """更新连接关系"""
+        user_id = get_jwt_identity()
+        data = request.get_json()
+
+        network = NetworkDB.find_by_network_id(user_id, network_id)
+        if not network:
+            return {"message": "Network not found"}, 404
+
+        # 验证连接存在
+        existing_conn = next((c for c in network.get("connections", [])
+                              if c["connection_id"] == connection_id), None)
+        if not existing_conn:
+            return {"message": "Connection not found"}, 404
+
+        # 数据验证
+        is_valid, message = validate_connection_data(network, data)
+        if not is_valid:
+            return {"message": message}, 400
+
+        # 更新连接
+        update_data = {
+            "from_node": data["from_node"],
+            "to_node": data["to_node"]
+        }
+        update_result = NetworkDB.update_connection(
+            network_id, connection_id, update_data
+        )
+
+        if update_result.modified_count > 0:
+            return update_data, 200
+        return {"message": "No changes detected"}, 200
+
+
+class ConnectionDelete(Resource):
+    @jwt_required()
+    def delete(self, network_id, connection_id):
+        """删除连接关系"""
+        user_id = get_jwt_identity()
+
+        network = NetworkDB.find_by_network_id(user_id, network_id)
+        if not network:
+            return {"message": "Network not found"}, 404
+
+        # 删除操作
+        delete_result = NetworkDB.delete_connection(network_id, connection_id)
+        if delete_result.modified_count > 0:
+            return {"message": "Connection deleted successfully"}, 200
+        return {"message": "Connection not found"}, 404
+

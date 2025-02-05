@@ -117,6 +117,37 @@ class NetworkDB:
             {"$set": {"Span": span_parameters}}
         )
 
+    @staticmethod
+    def add_connection(network_id, connection_data):
+        """向指定网络添加连接关系"""
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$push": {"connections": connection_data}}
+        )
+
+    @staticmethod
+    def update_connection(network_id, connection_id, update_data):
+        """更新指定网络的连接关系"""
+        return db.networks.update_one(
+            {
+                "_id": ObjectId(network_id),
+                "connections.connection_id": connection_id
+            },
+            {
+                "$set": {
+                    "connections.$.from_node": update_data["from_node"],
+                    "connections.$.to_node": update_data["to_node"]
+                }
+            }
+        )
+
+    @staticmethod
+    def delete_connection(network_id, connection_id):
+        """从指定网络删除连接关系"""
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$pull": {"connections": {"connection_id": connection_id}}}
+        )
 
 class EquipmentLibraryDB:
     @staticmethod

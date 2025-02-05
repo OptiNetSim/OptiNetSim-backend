@@ -17,6 +17,7 @@ def validate_edfa_params(params):
         "p_max": (float, int),  # 最大功率
         "nf_min": (float, int),  # 最小噪声系数
         "nf_max": (float, int),  # 最大噪声系数
+        "nf_coef": list,  # 噪声系数
         "out_voa_auto": bool,  # 是否自动调节输出 VOA
         "allowed_for_design": bool  # 是否允许用于设计
     }
