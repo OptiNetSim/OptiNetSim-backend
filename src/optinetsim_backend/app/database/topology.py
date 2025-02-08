@@ -10,7 +10,7 @@ from src.optinetsim_backend.app.database.models import NetworkDB, EquipmentLibra
 def validate_element_data(data, element_type):
     """核验输入数据是否符合GNPY文档中的字段定义"""
     common_fields = {
-        "uid": str,  # 元素名称，必须是字符串
+        "name": str,  # 元素名称，必须是字符串
         "type": str,  # 元素类型，必须是字符串
         "metadata": dict,  # 元数据，必须是字典
     }
@@ -195,7 +195,7 @@ class TopologyUpdateElement(Resource):
         if not is_valid:
             return {"message": message}, 400
 
-        # 向 data 中添加 uid
+        # 向 data 中添加 element_id
         data["element_id"] = element_id
 
         # 重新组织数据，使 element_id 位于首个位置
@@ -237,8 +237,8 @@ def validate_connection_data(network, data):
             return False, f"Missing required field: {field}"
 
     # 检查节点是否存在
-    from_node_exists = any(str(e["uid"]) == data["from_node"] for e in network["elements"])
-    to_node_exists = any(str(e["uid"]) == data["to_node"] for e in network["elements"])
+    from_node_exists = any(str(e["element_id"]) == data["from_node"] for e in network["elements"])
+    to_node_exists = any(str(e["element_id"]) == data["to_node"] for e in network["elements"])
 
     if not from_node_exists:
         return False, "from_node does not exist"
