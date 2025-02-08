@@ -17,10 +17,13 @@ from gnpy.topology.request import PathRequest, Disjunction, compute_spectrum_slo
 from gnpy.topology.spectrum_assignment import mvalue_to_slots
 from gnpy.tools.convert import xls_to_json_data
 from gnpy.tools.service_sheet import read_service_sheet
-from gnpy.tools.json_io import network_from_json,_equipment_from_json, Amp, merge_equalization, Fiber, Span, Roadm, SI, Transceiver, RamanFiber, _check_fiber_vs_raman_fiber, _update_dual_stage, _update_band, _roadm_restrictions_sanity_check
+from gnpy.tools.json_io import network_from_json, _equipment_from_json, Amp, merge_equalization, Fiber, Span, Roadm, SI, \
+    Transceiver, RamanFiber, _check_fiber_vs_raman_fiber, _update_dual_stage, _update_band, \
+    _roadm_restrictions_sanity_check
 
 # Project imports
 from src.optinetsim_backend.app.database.models import NetworkDB, EquipmentLibraryDB
+
 
 def load_network_from_database(user_id, network_id, equipment):
     """
@@ -36,15 +39,20 @@ def load_network_from_database(user_id, network_id, equipment):
     if not network:
         return None
     network_json = {}
-    network_json['elements'] = [
-        {key: value for key, value in element.items() if key not in ['element_id', 'library_id']}
-        for element in network['elements']
-    ]
-    network_json['connections'] = [
-        {key: value for key, value in element.items() if key not in ['connection_id']}
-        for element in network['connections']
-    ]
-    #print(network_json)
+    # 遍历 elements 列表中的每个元素
+    for element in network_json['elements']:
+        # 将 element_id 键名替换为 uid
+        element['uid'] = element.pop('element_id')
+
+        # 移除 name 和 library_id 键值对
+        element.pop('name', None)
+        element.pop('library_id', None)
+    # 遍历 connections 列表中的每个元素
+    for connection in network_json['connections']:
+        # 移除 connection_id 键值对
+        connection.pop('connection_id', None)
+    # 打印修改后的 JSON 数据
+    print(json.dumps(network_json, indent=4))
     # 返回转换后的有向图
     return network_from_json(network_json, equipment)
 
@@ -64,7 +72,6 @@ def load_spectral_information_from_database(user_id, network_id):
         return None
     # 返回光谱信息
     return network['SI']
-
 
 
 def load_span_information_from_database(user_id, network_id):
@@ -103,7 +110,7 @@ def load_equipment_from_database(user_id, network_id):
     for element_config in network['elements']:
         # 提取library_id并加入集合
         library_ids.add(element_config['library_id'])
-    #print(library_ids)
+    # print(library_ids)
     # 初始化一个空列表，用于存储所有设备
     equipment_json = {}
     for library_id in library_ids:
@@ -122,5 +129,5 @@ def load_equipment_from_database(user_id, network_id):
                 equipment_json[eq_category].extend(eq_list)
     equipment_json['SI'] = [network['SI'].copy()]
     equipment_json['Span'] = [network['Span'].copy()]
-    #print(equipment_json)
-    return _equipment_from_json(equipment_json,'c:\softwares\code\projects\oopt-gnpy\gnpy\example-data\eqpt_config.json')
+    # print(equipment_json)
+    return _equipment_from_json(equipment_json, './default_edfa_config.json')
