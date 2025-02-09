@@ -39,6 +39,15 @@ def load_network_from_database(user_id, network_id, equipment):
     if not network:
         return None
     network_json = {}
+    network_json['network_name'] = network['network_name']
+    network_json['elements'] = [
+        {key: value for key, value in element.items()}
+        for element in network['elements']
+    ]
+    network_json['connections'] = [
+        {key: value for key, value in element.items()}
+        for element in network['connections']
+    ]
     # 遍历 elements 列表中的每个元素
     for element in network_json['elements']:
         # 将 element_id 键名替换为 uid
@@ -51,8 +60,7 @@ def load_network_from_database(user_id, network_id, equipment):
     for connection in network_json['connections']:
         # 移除 connection_id 键值对
         connection.pop('connection_id', None)
-    # 打印修改后的 JSON 数据
-    print(json.dumps(network_json, indent=4))
+    # print(network_json)
     # 返回转换后的有向图
     return network_from_json(network_json, equipment)
 
