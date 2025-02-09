@@ -117,6 +117,6 @@ def simulate_network(user_id, network_id, source_uid, destination_uid, initial_s
             print(path[-1])
 
 if __name__ == '__main__':
-    simulate_network('67944bc22939d50866927b26', '67944be42939d50866927b27',
-                     '67945153518d360331fcec51', '6794515a518d360331fcec52')
+    simulate_network('678eb752758dcc9974b2603d', '67a83f2109f8bdef32408844',
+                     '67a84b51d61a87d997ddb187', '67a84b93be16bccc748e6e76')
     print('仿真成功完成')
