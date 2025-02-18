@@ -25,6 +25,17 @@ class UserDB:
     def delete_by_userid(user_id):
         return db.users.delete_one({"_id": ObjectId(user_id)}).deleted_count > 0
 
+    @staticmethod
+    def find_by_userid(user_id):
+        return db.users.find_one({"_id": ObjectId(user_id)})
+
+    @staticmethod
+    def update_password(user_id, password):
+        db.users.update_one(
+            {"_id": ObjectId(user_id)},
+            {"$set": {"password": password}}
+        )
+
 
 class NetworkDB:
     @staticmethod
@@ -148,6 +159,17 @@ class NetworkDB:
             {"_id": ObjectId(network_id)},
             {"$pull": {"connections": {"connection_id": connection_id}}}
         )
+
+    @staticmethod
+    def find_element_name_by_id(network_id, element_id):
+        """根据 element_id 查找 element 的 name"""
+        network = db.networks.find_one(
+            {"_id": ObjectId(network_id), "elements.element_id": element_id},
+            {"elements.$": 1}  # 只返回匹配的 element
+        )
+        if network and network["elements"]:
+            return network["elements"][0].get("name", None)
+        return None
 
 class EquipmentLibraryDB:
     @staticmethod

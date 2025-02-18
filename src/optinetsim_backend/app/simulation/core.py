@@ -25,7 +25,7 @@ from src.optinetsim_backend.app.simulation.sim_params import generate_simulation
 
 
 # Simulate the network
-def simulate_network(user_id, network_id, source_uid, destination_uid, plot=False, show_channels=False, spectrum: dict = None, power = 0, no_insert_edfas = False):
+def simulate_network(user_id, network_id, source_uid, destination_uid, plot=False, spectrum: dict = None, power = 0, no_insert_edfas = False):
     equipment = load_equipment_from_database(user_id, network_id)
     network = load_network_from_database(user_id, network_id, equipment)
     if plot:
@@ -105,6 +105,8 @@ def simulate_network(user_id, network_id, source_uid, destination_uid, plot=Fals
           + '                      收发器输出功率 = '
           + f'{pretty_summary_print(per_label_average(watt2dbm(infos.tx_power), infos.label))} dBm,\n'
           + f'                      通道数量 = {infos.number_of_channels})')
+    
+    res_path = []    
     for mypath, power_dbm in zip(propagations_for_path, powers_dbm):
         if power_mode:
             print(f'跨段输入光功率参考 = {ansi_escapes.cyan}{power_dbm:.2f} '
@@ -114,7 +116,7 @@ def simulate_network(user_id, network_id, source_uid, destination_uid, plot=Fals
         if len(powers_dbm) == 1:
             for elem in mypath:
                 print(elem)
-                print(type(elem))
+                res_path.append(elem.uid)
             if power_mode:
                 print(f'\n跨段输入光功率参考的传输结果 = {power_dbm:.2f} dBm:')
             else:
@@ -123,29 +125,40 @@ def simulate_network(user_id, network_id, source_uid, destination_uid, plot=Fals
         else:
             print(mypath[-1])
 
-    if show_channels:
-        print('\n线路末端每个通道的 GSNR 为:')
-        print(
-            '{:>5}{:>26}{:>26}{:>28}{:>28}{:>28}' .format(
-                '通道 #',
-                '通道频率 (THz)',
-                '通道功率 (dBm)',
-                'OSNR ASE (信号带宽, dB)',
-                'SNR NLI (信号带宽, dB)',
-                'GSNR (信号带宽, dB)'))
-        for final_carrier, ch_osnr, ch_snr_nl, ch_snr in zip(
-                infos.carriers, path[-1].osnr_ase, path[-1].osnr_nli, path[-1].snr):
-            ch_freq = final_carrier.frequency * 1e-12
-            ch_power = lin2db(final_carrier.power.signal * 1e3)
-            print(
-                '{:5}{:26.5f}{:26.2f}{:28.2f}{:28.2f}{:28.2f}' .format(
-                    final_carrier.channel_number, round(
-                        ch_freq, 5), round(
-                        ch_power, 2), round(
-                        ch_osnr, 2), round(
-                        ch_snr_nl, 2), round(
-                            ch_snr, 2)))
+    channel_data = []  
+    # print('\n线路末端每个通道的 GSNR 为:')
+    # print(
+    #     '{:>5}{:>26}{:>26}{:>28}{:>28}{:>28}' .format(
+    #         '通道 #',
+    #         '通道频率 (THz)',
+    #         '通道功率 (dBm)',
+    #         'OSNR ASE (信号带宽, dB)',
+    #         'SNR NLI (信号带宽, dB)',
+    #         'GSNR (信号带宽, dB)'))
+    for final_carrier, ch_osnr, ch_snr_nl, ch_snr in zip(
+            infos.carriers, path[-1].osnr_ase, path[-1].osnr_nli, path[-1].snr):
+        ch_freq = final_carrier.frequency * 1e-12
+        ch_power = lin2db(final_carrier.power.signal * 1e3)
+        channel_info = {  # 创建一个字典来存储单个通道的信息
+            'channel_number': final_carrier.channel_number,
+            'channel_frequency': round(ch_freq, 5),
+            'channel_power': round(ch_power, 2),
+            'OSNR_ASE': round(ch_osnr, 2),
+            'SNR_NLI': round(ch_snr_nl, 2),
+            'GSNR': round(ch_snr, 2)
+        }
+        channel_data.append(channel_info)  # 将通道信息添加到列表中
+        # print(
+        #     '{:5}{:26.5f}{:26.2f}{:28.2f}{:28.2f}{:28.2f}' .format(
+        #         final_carrier.channel_number, round(
+        #             ch_freq, 5), round(
+        #             ch_power, 2), round(
+        #             ch_osnr, 2), round(
+        #             ch_snr_nl, 2), round(
+        #                 ch_snr, 2)))
 
+    return spans, infos, res_path, mypath, channel_data
+        
 if __name__ == '__main__':
     simulate_network('678eb752758dcc9974b2603d', '67a83f2109f8bdef32408844',
                      '67a858fd55643b796290c2e2', '67a858fd55643b796290c2e4', False)

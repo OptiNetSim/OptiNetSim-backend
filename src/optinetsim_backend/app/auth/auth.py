@@ -39,3 +39,21 @@ class UserResource(Resource):
         if UserDB.delete_by_userid(user_id):
             return {'msg': 'User deleted successfully'}, 200
         return {'msg': 'Failed to delete user'}, 400
+
+
+class ChangePasswordResource(Resource):
+    @jwt_required()
+    def post(self):
+        user_id = get_jwt_identity()
+        old_password = request.json.get('old_password', None)
+        new_password = request.json.get('new_password', None)
+
+        if not old_password or not new_password:
+            return {'msg': 'old_password and new_password are required'}, 400
+
+        user = UserDB.find_by_userid(user_id)
+        if user and check_password_hash(user['password'], old_password):
+            hashed_password = generate_password_hash(new_password, method='scrypt')
+            UserDB.update_password(user_id, hashed_password)
+            return {'msg': 'Password changed successfully'}, 200
+        return {'msg': 'Bad old password'}, 401
