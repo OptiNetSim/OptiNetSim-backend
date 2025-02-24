@@ -6,6 +6,25 @@ from src.optinetsim_backend.app.simulation.core import simulate_network
 from gnpy.core.utils import watt2dbm, per_label_average, mean
 from src.optinetsim_backend.app.database.models import NetworkDB
 
+def convert_to_spectrum_array(data, metric_name):
+    """
+    Convert dictionary format to array of objects with spectrum_band and metric value.
+    
+    Args:
+        data (dict): Dictionary with spectrum band as key and metric value as value
+        metric_name (str): Name of the metric value field in output
+        
+    Returns:
+        list: Array of dictionaries with spectrum_band and metric value
+    """
+    return [
+        {
+            "spectrum_band": band,
+            metric_name: str(value)
+        }
+        for band, value in data.items()
+    ]
+
 class SingleLinkSimulationResource(Resource):
     @jwt_required()
     def post(self):
@@ -57,22 +76,65 @@ class SingleLinkSimulationResource(Resource):
                 power=power,
                 no_insert_edfas=no_insert_edfas
             )
-            # 构建 full_path_info 时，使用 element name 替换 str(elem)
+            
             full_path_info = []
             for elem in mypath:
-                element_id = elem.uid  # 直接使用元素的 uid 属性
+                element_id = elem.uid
                 element_name = NetworkDB.find_element_name_by_id(network_id, element_id)
-                full_path_info.append(str(elem).replace(elem.uid, element_name or elem.uid))
+                replaced_str = str(elem).replace(elem.uid, element_name or elem.uid)
+                
+                # 解析字符串为字典
+                element_dict = {}
+                lines = replaced_str.split('\n')
+                
+                if lines:
+                    # 处理第一行元素描述
+                    element_dict["element"] = lines[0].strip()
+                    
+                    # 处理后续属性行
+                    for line in lines[1:]:
+                        line = line.strip()
+                        if not line:
+                            continue
+                        
+                        # 分割键值对
+                        if ':' in line:
+                            key, value = line.split(':', 1)
+                            key = key.strip()
+                            value = value.strip()
+                            
+                            # 尝试转换为数值类型
+                            try:
+                                value = float(value) if '.' in value else int(value)
+                            except ValueError:
+                                pass  # 保持字符串类型
+                            
+                            element_dict[key] = value
+                
+                full_path_info.append(element_dict)
+            
             result = {
                 'Source': source_uid,
                 'Destination': destination_uid,
                 'number of channels': infos.number_of_channels,
                 'number of fiber': len(spans),
-                'length of fiber': sum(spans) / 1000,
-                'GSNR (0.1nm, dB)': per_label_average(mypath[-1].snr_01nm, mypath[-1].propagated_labels),
-                'Mean GSNR (signal bw, dB)': per_label_average(mypath[-1].snr, mypath[-1].propagated_labels),
-                'Mean OSNR ASE (0.1nm, dB)': per_label_average(mypath[-1].osnr_ase_01nm, mypath[-1].propagated_labels),
-                'Mean OSNR ASE (signal bw, dB)': per_label_average(mypath[-1].osnr_ase, mypath[-1].propagated_labels),
+                'length of fiber (km)': sum(spans) / 1000,
+                'Mean GSNR (0.1nm, dB)': convert_to_spectrum_array(
+                    per_label_average(mypath[-1].snr_01nm, mypath[-1].propagated_labels),
+                    'mean_GSNR_0_1nm'
+                ),
+                'Mean GSNR (signal bw, dB)': convert_to_spectrum_array(
+                    per_label_average(mypath[-1].snr, mypath[-1].propagated_labels),
+                    'mean_GSNR_signal_bw'
+                ),
+                'Mean OSNR ASE (0.1nm, dB)': convert_to_spectrum_array(
+                    per_label_average(mypath[-1].osnr_ase_01nm, mypath[-1].propagated_labels),
+                    'mean_OSNR_ASE_0_1nm'
+                ),
+                'Mean OSNR ASE (signal bw, dB)': convert_to_spectrum_array(
+                    per_label_average(mypath[-1].osnr_ase, mypath[-1].propagated_labels),
+                    'mean_OSNR_ASE_signal_bw'
+                ),
                 'Total CD (ps/nm)': mean(mypath[-1].chromatic_dispersion),
                 'Total PMD (ps)': mean(mypath[-1].pmd),
                 'Total PDL (dB)': mean(mypath[-1].pdl),
