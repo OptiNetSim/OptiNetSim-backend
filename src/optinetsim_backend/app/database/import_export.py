@@ -6,7 +6,7 @@ from pymongo import MongoClient
 from bson import ObjectId
 from datetime import datetime
 from src.optinetsim_backend.app.config import Config
-from src.optinetsim_backend.app.database.models import NetworkDB, db
+from src.optinetsim_backend.app.database.models import NetworkDB, db, EquipmentLibraryDB
 from collections import OrderedDict
 import json
 
@@ -23,12 +23,6 @@ def convert_objectid_and_datetime(data):
         return data.isoformat()
     else:
         return data
-
-def ensure_element_id(elements):
-    for element in elements:
-        if "element_id" not in element:
-            element["element_id"] = str(uuid.uuid4())
-    return elements
 
 def merge_dicts(old_dict, new_dict):
     merged = old_dict.copy()
@@ -81,7 +75,16 @@ class NetworkExportResource(Resource):
                 lib.pop("user_id", None)  # 移除 user_id
 
             # 确保每个元素都有 element_id
-            network["elements"] = ensure_element_id(network.get("elements", []))
+            network["elements"] = NetworkDB.ensure_element_id(network.get("elements", []))
+
+            # 处理设备库内容，确保返回规范化的数据
+            for lib in equipment_libraries:
+                # 确保设备库中的每个equipment字段有标准格式
+                for equipment_type, equipments in lib.get("equipments", {}).items():
+                    for equipment in equipments:
+                        # 使用字典获取type_variety和params，如果缺少则返回默认值
+                        equipment["type_variety"] = equipment.get("type_variety", "Unknown")
+                        equipment["params"] = equipment.get("params", {})
 
             # 构建响应数据
             response = OrderedDict({
@@ -92,7 +95,7 @@ class NetworkExportResource(Resource):
                 "simulation_config": network.get("simulation_config", {}),
                 "SI": network.get("SI", {}),
                 "Span": network.get("Span", {}),
-                "equipment_libraries": equipment_libraries  # 只返回与元素关联的设备库
+                "equipment_libraries": equipment_libraries  # 返回所有与元素关联的设备库
             })
 
             # 返回响应数据
@@ -101,20 +104,12 @@ class NetworkExportResource(Resource):
         except Exception as e:
             return {"message": str(e)}, 500
 
-
 ######################################
 # NetworkImportResource (新建网络数据)
 ######################################
 
 def generate_element_id():
     return str(ObjectId())
-
-# Helper function: Ensure `library_id` is treated as ObjectId for querying
-def get_library_by_id(library_id_str):
-    try:
-        return db.equipment_libraries.find_one({"_id": ObjectId(library_id_str)})  # Ensure ObjectId conversion
-    except Exception as e:
-        return None  # In case ObjectId conversion fails
 
 # Helper function: Validate elements' type and type_variety
 def validate_elements(elements, equipment_libraries):
@@ -125,7 +120,7 @@ def validate_elements(elements, equipment_libraries):
             raise ValueError(f"Invalid type: {element['type']}. Valid types are {', '.join(valid_types)}.")
 
         # Check if the type_variety exists in the corresponding equipment library
-        library = get_library_by_id(element["library_id"])  # Fetch the library using ObjectId
+        library = EquipmentLibraryDB.get_library_by_id(element["library_id"])  # Fetch the library using ObjectId
         if library:
             valid_type_varieties = [eq["type_variety"] for eq in library["equipments"].get(element["type"], [])]
             if element["type_variety"] not in valid_type_varieties:
@@ -139,8 +134,7 @@ def merge_library_params(elements, equipment_libraries):
     for element in elements:
         library_id = element.get("library_id")
         if library_id:
-            # Find the equipment library based on library_id
-            library = get_library_by_id(library_id)
+            library = EquipmentLibraryDB.get_library_by_id(library_id)
             if library:
                 equipment = next(
                     (eq for eq in library["equipments"].get(element["type"], []) if
@@ -148,54 +142,52 @@ def merge_library_params(elements, equipment_libraries):
                     None
                 )
                 if equipment:
-                    # Merge the parameters from the library into the element
-                    # Only merge the params fields that are relevant and don't introduce unexpected fields
-                    element["params"] = equipment["params"]  # Overwrite params from the library
-                    # Now merge any additional params from the element itself (if present)
+                    element["params"] = equipment["params"]
                     if "params" in element:
                         element["params"].update(element["params"])
 
     return elements
 
-# Helper function to convert ObjectId to string recursively
 def convert_objectid_to_str(obj):
     if isinstance(obj, dict):
-        return {k: str(v) if isinstance(v, ObjectId) else v for k, v in obj.items()}
+        return {k: convert_objectid_to_str(v) for k, v in obj.items()}
     elif isinstance(obj, list):
-        return [str(item) if isinstance(item, ObjectId) else item for item in obj]
+        return [convert_objectid_to_str(item) for item in obj]
+    elif isinstance(obj, ObjectId):
+        return str(obj)
     return obj
 
-# Helper function to convert datetime to string
 def convert_datetime_to_str(obj):
     if isinstance(obj, datetime):
-        return obj.strftime("%Y-%m-%d %H:%M:%S")  # Convert datetime to string format
-    if isinstance(obj, dict):
+        return obj.strftime("%Y-%m-%d %H:%M:%S")
+    elif isinstance(obj, dict):
         return {k: convert_datetime_to_str(v) for k, v in obj.items()}
     elif isinstance(obj, list):
         return [convert_datetime_to_str(item) for item in obj]
     return obj
 
-# Main resource to handle network import
-# Helper function: Insert equipment library into the database
 def insert_equipment_library(library_data, user_id):
     # Insert the library data into the equipment_libraries collection
     library_data["user_id"] = ObjectId(user_id)  # Assign the user_id to the equipment library
     result = db.equipment_libraries.insert_one(library_data)
     return str(result.inserted_id)  # Return the inserted library's _id
 
-# Main resource to handle network import
+def get_existing_element_by_id(element_id):
+    return db.networks.find_one({"elements.element_id": element_id})
+
+def get_existing_library_by_id(library_id):
+    return db.equipment_libraries.find_one({"_id": ObjectId(library_id)})
 
 class NetworkImportResource(Resource):
     @jwt_required()
     def post(self):
         try:
-            user_id = get_jwt_identity()  # Get the user_id from the JWT token
+            user_id = get_jwt_identity()
             data = request.get_json()
 
             if not data:
                 return {"message": "Invalid request body"}, 400
 
-            # Extract network information from the request
             network_name = data.get("network_name")
             elements = data.get("elements", [])
             connections = data.get("connections", [])
@@ -208,16 +200,48 @@ class NetworkImportResource(Resource):
             if not network_name:
                 return {"message": "Network name is required"}, 400
 
-            # Step 1: Validate elements' type and type_variety
-            elements = validate_elements(elements, equipment_libraries)
+            inserted_library_ids = []
+            for library in equipment_libraries:
+                if "_id" in library:
+                    existing_library = db.equipment_libraries.find_one({"_id": ObjectId(library["_id"])})
+                    if existing_library:
+                        db.equipment_libraries.update_one(
+                            {"_id": ObjectId(library["_id"])},
+                            {"$set": {
+                                "library_name": library["library_name"],
+                                "created_at": library.get("created_at", datetime.utcnow()),
+                                "updated_at": datetime.utcnow(),
+                                "equipments": library["equipments"]
+                            }}
+                        )
+                    else:
+                        # Library does not exist, insert new one
+                        library["_id"] = ObjectId(library["_id"])  # Ensure _id is ObjectId type
+                        library["user_id"] = ObjectId(user_id)  # Insert correct user_id
+                        library["created_at"] = datetime.utcnow()
+                        library["updated_at"] = datetime.utcnow()
+                        db.equipment_libraries.insert_one(library)
+                    inserted_library_ids.append(library["_id"])
+                else:
+                    library["_id"] = ObjectId()
+                    library["user_id"] = ObjectId(user_id)
+                    library["created_at"] = datetime.utcnow()
+                    library["updated_at"] = datetime.utcnow()
+                    db.equipment_libraries.insert_one(library)
+                    inserted_library_ids.append(library["_id"])
 
-            # Step 2: Generate element_id for each element
+            # Step 2: Validate and generate element_id for elements
             for element in elements:
-                element["element_id"] = generate_element_id()
+                if "element_id" not in element:
+                    element["element_id"] = str(uuid.uuid4())  # Automatically generate element_id
+
+                # If library_id is provided, ensure it's an ObjectId
+                if "library_id" in element:
+                    element["library_id"] = ObjectId(element["library_id"])
 
             # Step 3: Create network data
             network = {
-                "user_id": ObjectId(user_id),  # Ensure the user_id is stored as ObjectId
+                "user_id": ObjectId(user_id),
                 "network_name": network_name,
                 "created_at": datetime.utcnow(),
                 "updated_at": datetime.utcnow(),
@@ -229,31 +253,44 @@ class NetworkImportResource(Resource):
                 "Span": Span
             }
 
-            # Insert the new network document into the database
+            # Step 4: Insert the network data
             db.networks.insert_one(network)
 
-            # Step 4: Construct the response data (directly from the request parameters)
+            # Step 5: Prepare the response data
             response = {
-                "network_id": str(network["_id"]),  # Convert ObjectId to string
+                "network_id": str(network["_id"]),
                 "network_name": network_name,
-                "created_at": convert_datetime_to_str(network["created_at"]),  # Convert datetime to string
-                "updated_at": convert_datetime_to_str(network["updated_at"]),  # Convert datetime to string
-                "elements": convert_objectid_to_str(elements),  # Convert ObjectId in elements
+                "created_at": convert_datetime_to_str(network["created_at"]),
+                "updated_at": convert_datetime_to_str(network["updated_at"]),
+                "elements": convert_objectid_to_str(elements),
                 "connections": connections,
                 "services": services,
                 "simulation_config": simulation_config,
                 "SI": SI,
                 "Span": Span,
-                "equipment_libraries": []  # Empty at first, will be populated below
+                "equipment_libraries": []
             }
 
-            # Fetch equipment libraries from the database and add them to the response
-            equipment_libraries = [
-                convert_objectid_to_str(lib) for lib in db.equipment_libraries.find({"_id": {"$in": [ObjectId(x) for x in [element['library_id'] for element in elements]]}})
-            ]
-            response["equipment_libraries"] = equipment_libraries
+            # Step 6: Get all relevant equipment libraries based on elements' library_id
+            # Find all unique library_id used in elements
+            library_ids_in_elements = set([element.get("library_id") for element in elements if "library_id" in element])
+            equipment_libraries_info = []
+            for library_id in library_ids_in_elements:
+                library = db.equipment_libraries.find_one({"_id": ObjectId(library_id)})
+                if library:
+                    # Ensure all data is included in the response
+                    library_data = {
+                        "_id": str(library["_id"]),
+                        "library_name": library["library_name"],
+                        "created_at": convert_datetime_to_str(library["created_at"]),
+                        "updated_at": convert_datetime_to_str(library["updated_at"]),
+                        "equipments": library["equipments"]
+                    }
+                    library_data.pop("user_id", None)
+                    equipment_libraries_info.append(library_data)
 
-            # Ensure all datetime objects are converted to string before returning
+            response["equipment_libraries"] = equipment_libraries_info
+
             response = convert_datetime_to_str(response)
 
             return Response(
@@ -290,43 +327,46 @@ class TopologyImportResource(Resource):
             Span = data.get("Span", {})
             request_equipment_libraries = data.get("equipment_libraries", [])
 
-            # Process the new equipment libraries
-            allowed_library_ids = set()
-            for elem in network.get("elements", []):
-                if "library_id" in elem:
-                    allowed_library_ids.add(str(elem["library_id"]))
-                if "associated_library_ids" in elem:
-                    allowed_library_ids.update([str(lib_id) for lib_id in elem["associated_library_ids"]])
-
-            # Process and add new equipment libraries
+            # Process the new equipment libraries and insert them into the database
+            # We only need to insert libraries that are associated with new elements
             new_library_ids = []
             for library in request_equipment_libraries:
                 if "_id" not in library:
                     # Create new library if no _id
                     library['_id'] = ObjectId()
-                    library['user_id'] = ObjectId(user_id)
-                    library['created_at'] = datetime.utcnow()
-                    library['updated_at'] = datetime.utcnow()
-                    db.equipment_libraries.insert_one(library)
-                    library.pop('user_id', None)  # Remove user_id field
-                    new_library_ids.append(str(library['_id']))
                 else:
-                    # If library has _id, make sure it's in allowed_library_ids
-                    if str(library["_id"]) in allowed_library_ids:
-                        new_library_ids.append(str(library["_id"]))
+                    # Ensure the _id is of type ObjectId
+                    if isinstance(library["_id"], str):
+                        library["_id"] = ObjectId(library["_id"])
 
-            # Merge new libraries with the existing allowed libraries
-            allowed_library_ids = list(set(allowed_library_ids) | set(new_library_ids))
+                # Set user_id and timestamps
+                library['user_id'] = ObjectId(user_id)
+                library['created_at'] = datetime.utcnow()
+                library['updated_at'] = datetime.utcnow()
+
+                # Insert the library into the database if not already exists
+                db.equipment_libraries.insert_one(library)
+                new_library_ids.append(str(library['_id']))
+
+            # Collect all library_ids from existing elements and newly added elements
+            all_library_ids = set()
+            for elem in network.get("elements", []):
+                if "library_id" in elem:
+                    all_library_ids.add(str(elem["library_id"]))
+            for elem in new_elements:
+                if "library_id" in elem:
+                    all_library_ids.add(str(elem["library_id"]))
 
             # Validate and ensure that new elements' library_id are in allowed_library_ids
             validated_new_elements = []
             for element in new_elements:
-                if "library_id" in element and str(element["library_id"]) in allowed_library_ids:
-                    element["associated_library_ids"] = allowed_library_ids
+                if "library_id" in element and str(element["library_id"]) in all_library_ids:
                     validated_new_elements.append(element)
-            new_elements = ensure_element_id(validated_new_elements)  # Ensure each element has an element_id
 
-            # Add new topology data (elements, connections, services)
+            # Generate element_id for new elements
+            validated_new_elements = NetworkDB.ensure_element_id(validated_new_elements)
+
+            # Update network with new elements, connections, and services
             db.networks.update_one(
                 {"_id": ObjectId(network_id)},
                 {
@@ -337,7 +377,7 @@ class TopologyImportResource(Resource):
                         "updated_at": datetime.utcnow()
                     },
                     "$push": {
-                        "elements": {"$each": new_elements},
+                        "elements": {"$each": validated_new_elements},
                         "connections": {"$each": new_connections},
                         "services": {"$each": new_services}
                     }
@@ -348,16 +388,19 @@ class TopologyImportResource(Resource):
             updated_network = db.networks.find_one({"_id": ObjectId(network_id)})
             updated_network = convert_objectid_and_datetime(updated_network)
 
-            # Fetch equipment libraries related to the elements in the network
-            # Only return libraries that are associated with elements
+            # Fetch only the equipment libraries related to all the library_ids in the elements
+            # Query only the libraries that are actually associated with the elements
             equipment_libraries_response = list(
-                db.equipment_libraries.find({"_id": {"$in": [ObjectId(x) for x in allowed_library_ids]}})
+                db.equipment_libraries.find({"_id": {"$in": [ObjectId(x) for x in all_library_ids]}})
             )
-            equipment_libraries_response = [convert_objectid_and_datetime(lib) for lib in equipment_libraries_response]
+
+            # Ensure to remove user_id field from response and convert object_ids and datetime to string
             for lib in equipment_libraries_response:
                 lib.pop("user_id", None)
 
-            # Prepare the response data
+            # Ensure that all the libraries are included, even if their content is not complete
+            equipment_libraries_response = [convert_objectid_and_datetime(lib) for lib in equipment_libraries_response]
+
             response = OrderedDict({
                 "network_id": str(updated_network["_id"]),
                 "network_name": updated_network["network_name"],
@@ -366,10 +409,10 @@ class TopologyImportResource(Resource):
                 "elements": updated_network.get("elements", []),
                 "connections": updated_network.get("connections", []),
                 "services": updated_network.get("services", []),
-                "simulation_config": updated_network["simulation_config"],  # Keep original simulation_config
-                "SI": updated_network["SI"],  # Keep original SI
-                "Span": updated_network["Span"],  # Keep original Span
-                "equipment_libraries": equipment_libraries_response  # Return only relevant equipment libraries
+                "simulation_config": updated_network["simulation_config"],
+                "SI": updated_network["SI"],
+                "Span": updated_network["Span"],
+                "equipment_libraries": equipment_libraries_response  # All libraries that were associated with the elements
             })
 
             return Response(
@@ -380,5 +423,10 @@ class TopologyImportResource(Resource):
 
         except Exception as e:
             return {"message": str(e)}, 500
+
+
+
+
+
 
 
