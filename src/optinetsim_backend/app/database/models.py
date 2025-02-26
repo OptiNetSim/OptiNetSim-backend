@@ -2,6 +2,7 @@ from datetime import datetime
 from pymongo import MongoClient
 from bson import ObjectId
 from src.optinetsim_backend.app.config import Config
+import uuid
 
 client = MongoClient(Config.MONGO_URI)
 db = client.optinetsim
@@ -52,6 +53,13 @@ class NetworkDB:
             }
         )
         return db.networks.find_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)})
+
+    @staticmethod
+    def ensure_element_id(elements):
+        for element in elements:
+            if "element_id" not in element:
+                element["element_id"] = str(uuid.uuid4())
+        return elements
 
     @staticmethod
     def add_element(network_id, element):
@@ -121,6 +129,14 @@ class EquipmentLibraryDB:
         if library and element_type in library['equipments']:
             return next((e for e in library['equipments'][element_type] if e['type_variety'] == element_type_variety), None)
         return None
+
+    @staticmethod
+    # Helper function: Ensure `library_id` is treated as ObjectId for querying
+    def get_library_by_id(library_id_str):
+        try:
+            return db.equipment_libraries.find_one({"_id": ObjectId(library_id_str)})  # Ensure ObjectId conversion
+        except Exception as e:
+            return None  # In case ObjectId conversion fails
 
     @staticmethod
     def update(library_id, library_name):
