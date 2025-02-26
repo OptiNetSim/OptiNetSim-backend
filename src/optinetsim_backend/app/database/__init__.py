@@ -18,7 +18,7 @@ from .global_config import (
     SpanParametersResource
 
 )
-from .import_export111 import (
+from .import_export import (
     NetworkExportResource,
     NetworkImportResource,
     TopologyImportResource
