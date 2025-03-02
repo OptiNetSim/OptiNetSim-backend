@@ -84,6 +84,15 @@ class NetworkDB:
 
     @staticmethod
     def delete_by_element_id(network_id, element_id):
+        # 删除与该 element 相关的连接关系
+        db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$pull": {"connections": {"from_node": element_id}}}
+        )
+        db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$pull": {"connections": {"to_node": element_id}}}
+        )
         return db.networks.update_one(
             {"_id": ObjectId(network_id)},
             {"$pull": {"elements": {"element_id": element_id}}}
