@@ -95,6 +95,42 @@ class NetworkDB:
         # 删除网络并返回删除成功与否
         return db.networks.delete_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)}).deleted_count
 
+    @staticmethod
+    def get_existing_element_by_id(element_id):
+        return db.networks.find_one({"elements.element_id": element_id})
+
+    @staticmethod
+    def update_network(network_id, updates):
+        updates["updated_at"] = datetime.utcnow()
+        db.networks.update_one({"_id": ObjectId(network_id)}, {"$set": updates})
+        return db.networks.find_one({"_id": ObjectId(network_id)})
+
+    @staticmethod
+    def create_full_network(user_id, network_data):
+        network_data["user_id"] = ObjectId(user_id)
+        network_data["created_at"] = datetime.utcnow()
+        network_data["updated_at"] = datetime.utcnow()
+        result = db.networks.insert_one(network_data)
+        network_data["_id"] = result.inserted_id
+        return network_data
+
+    @staticmethod
+    def append_topology(network_id, new_elements, new_connections, new_services):
+        db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {
+                "$push": {
+                    "elements": {"$each": new_elements},
+                    "connections": {"$each": new_connections},
+                    "services": {"$each": new_services}
+                },
+                "$set": {
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        return db.networks.find_one({"_id": ObjectId(network_id)})
+
 
 class EquipmentLibraryDB:
     @staticmethod
@@ -121,6 +157,15 @@ class EquipmentLibraryDB:
     @staticmethod
     def find_by_id(library_id):
         return db.equipment_libraries.find_one({"_id": ObjectId(library_id)})
+
+    @staticmethod
+    def get_existing_library_by_id(library_id):
+        return db.equipment_libraries.find_one({"_id": ObjectId(library_id)})
+
+    @staticmethod
+    def find_by_library_ids(library_ids):
+        # library_ids 是一个字符串列表
+        return list(db.equipment_libraries.find({"_id": {"$in": [ObjectId(x) for x in library_ids]}}))
 
     @staticmethod
     def find_by_type_variety(user_id, library_id, element_type, element_type_variety):
@@ -213,3 +258,38 @@ class EquipmentLibraryDB:
                 )
                 return True
         return False
+
+    @staticmethod
+    def create_library(library_data, user_id):
+        if "library_name" not in library_data:
+            raise ValueError("library_name is required in equipment library data")
+        if "equipments" not in library_data:
+            library_data["equipments"] = {
+                "Edfa": [],
+                "Fiber": [],
+                "RamanFiber": [],
+                "Roadm": [],
+                "Transceiver": []
+            }
+        if "_id" in library_data:
+            if isinstance(library_data["_id"], str):
+                library_data["_id"] = ObjectId(library_data["_id"])
+        else:
+            library_data["_id"] = ObjectId()
+        library_data["user_id"] = ObjectId(user_id)
+        library_data["created_at"] = datetime.utcnow()
+        library_data["updated_at"] = datetime.utcnow()
+        result = db.equipment_libraries.insert_one(library_data)
+        return str(result.inserted_id)
+
+def convert_objectid_and_datetime(data):
+    if isinstance(data, list):
+        return [convert_objectid_and_datetime(item) for item in data]
+    elif isinstance(data, dict):
+        return {key: convert_objectid_and_datetime(value) for key, value in data.items()}
+    elif isinstance(data, ObjectId):
+        return str(data)
+    elif isinstance(data, datetime):
+        return data.isoformat()
+    else:
+        return data
