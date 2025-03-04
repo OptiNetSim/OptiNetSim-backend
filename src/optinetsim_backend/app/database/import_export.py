@@ -2,15 +2,11 @@ import uuid
 from flask_restful import Resource
 from flask import Response, request
 from flask_jwt_extended import jwt_required, get_jwt_identity
-from pymongo import MongoClient
 from bson import ObjectId
 from datetime import datetime
-from src.optinetsim_backend.app.config import Config
-from src.optinetsim_backend.app.database.models import NetworkDB, db, EquipmentLibraryDB
+from src.optinetsim_backend.app.database.models import NetworkDB, EquipmentLibraryDB
 from collections import OrderedDict
 import json
-
-client = MongoClient(Config.MONGO_URI)
 
 def convert_objectid_and_datetime(data):
     if isinstance(data, list):
@@ -69,7 +65,7 @@ class NetworkExportResource(Resource):
                     library_ids.add(element["library_id"])
 
             # 查询所有设备库，只返回在元素中提到的设备库
-            equipment_libraries = list(db.equipment_libraries.find({"_id": {"$in": [ObjectId(x) for x in library_ids]}}))
+            equipment_libraries = EquipmentLibraryDB.find_by_library_ids(list(library_ids))
             equipment_libraries = [convert_objectid_and_datetime(lib) for lib in equipment_libraries]
             for lib in equipment_libraries:
                 lib.pop("user_id", None)  # 移除 user_id
@@ -166,25 +162,12 @@ def convert_datetime_to_str(obj):
         return [convert_datetime_to_str(item) for item in obj]
     return obj
 
-def insert_equipment_library(library_data, user_id):
-    # Insert the library data into the equipment_libraries collection
-    library_data["user_id"] = ObjectId(user_id)  # Assign the user_id to the equipment library
-    result = db.equipment_libraries.insert_one(library_data)
-    return str(result.inserted_id)  # Return the inserted library's _id
-
-def get_existing_element_by_id(element_id):
-    return db.networks.find_one({"elements.element_id": element_id})
-
-def get_existing_library_by_id(library_id):
-    return db.equipment_libraries.find_one({"_id": ObjectId(library_id)})
-
 class NetworkImportResource(Resource):
     @jwt_required()
     def post(self):
         try:
             user_id = get_jwt_identity()
             data = request.get_json()
-
             if not data:
                 return {"message": "Invalid request body"}, 400
 
@@ -200,51 +183,34 @@ class NetworkImportResource(Resource):
             if not network_name:
                 return {"message": "Network name is required"}, 400
 
+            # 处理设备库：调用模型层方法插入或更新设备库，返回插入后的 _id（字符串形式）
             inserted_library_ids = []
             for library in equipment_libraries:
                 if "_id" in library:
-                    existing_library = db.equipment_libraries.find_one({"_id": ObjectId(library["_id"])})
+                    existing_library = EquipmentLibraryDB.find_by_id(library["_id"])
                     if existing_library:
-                        db.equipment_libraries.update_one(
-                            {"_id": ObjectId(library["_id"])},
-                            {"$set": {
-                                "library_name": library["library_name"],
-                                "created_at": library.get("created_at", datetime.utcnow()),
-                                "updated_at": datetime.utcnow(),
-                                "equipments": library["equipments"]
-                            }}
-                        )
+                        EquipmentLibraryDB.update(library["_id"], {
+                            "library_name": library["library_name"],
+                            "equipments": library["equipments"],
+                            "created_at": library.get("created_at", datetime.utcnow())
+                        })
+                        inserted_library_ids.append(str(library["_id"]))
                     else:
-                        # Library does not exist, insert new one
-                        library["_id"] = ObjectId(library["_id"])  # Ensure _id is ObjectId type
-                        library["user_id"] = ObjectId(user_id)  # Insert correct user_id
-                        library["created_at"] = datetime.utcnow()
-                        library["updated_at"] = datetime.utcnow()
-                        db.equipment_libraries.insert_one(library)
-                    inserted_library_ids.append(library["_id"])
+                        inserted_library_ids.append(EquipmentLibraryDB.create_library(library, user_id))
                 else:
-                    library["_id"] = ObjectId()
-                    library["user_id"] = ObjectId(user_id)
-                    library["created_at"] = datetime.utcnow()
-                    library["updated_at"] = datetime.utcnow()
-                    db.equipment_libraries.insert_one(library)
-                    inserted_library_ids.append(library["_id"])
+                    inserted_library_ids.append(EquipmentLibraryDB.create_library(library, user_id))
 
-            # Step 2: Validate and generate element_id for elements
+            # 处理 elements：确保每个元素都有 element_id，并将 library_id 保持为字符串
             for element in elements:
                 if "element_id" not in element:
-                    element["element_id"] = str(uuid.uuid4())  # Automatically generate element_id
-
-                # If library_id is provided, ensure it's an ObjectId
+                    element["element_id"] = str(uuid.uuid4())
                 if "library_id" in element:
-                    element["library_id"] = ObjectId(element["library_id"])
+                    element["library_id"] = str(element["library_id"])
+            elements = NetworkDB.ensure_element_id(elements)
 
-            # Step 3: Create network data
-            network = {
-                "user_id": ObjectId(user_id),
+            # 组装完整的网络数据
+            network_data = {
                 "network_name": network_name,
-                "created_at": datetime.utcnow(),
-                "updated_at": datetime.utcnow(),
                 "elements": elements,
                 "connections": connections,
                 "services": services,
@@ -252,69 +218,52 @@ class NetworkImportResource(Resource):
                 "SI": SI,
                 "Span": Span
             }
+            # 调用模型层方法创建网络，返回完整网络文档
+            network = NetworkDB.create_full_network(user_id, network_data)
 
-            # Step 4: Insert the network data
-            db.networks.insert_one(network)
-
-            # Step 5: Prepare the response data
+            # 构造响应数据
             response = {
                 "network_id": str(network["_id"]),
-                "network_name": network_name,
+                "network_name": network["network_name"],
                 "created_at": convert_datetime_to_str(network["created_at"]),
                 "updated_at": convert_datetime_to_str(network["updated_at"]),
-                "elements": convert_objectid_to_str(elements),
-                "connections": connections,
-                "services": services,
-                "simulation_config": simulation_config,
-                "SI": SI,
-                "Span": Span,
-                "equipment_libraries": []
+                "elements": convert_objectid_to_str(network["elements"]),
+                "connections": network.get("connections", []),
+                "services": network.get("services", []),
+                "simulation_config": network.get("simulation_config", {}),
+                "SI": network.get("SI", {}),
+                "Span": network.get("Span", {}),
+                "equipment_libraries": []  # 稍后填充
             }
 
-            # Step 6: Get all relevant equipment libraries based on elements' library_id
-            # Find all unique library_id used in elements
+            # 仅返回与 elements 关联的设备库：提取所有元素中的 library_id
             library_ids_in_elements = set([element.get("library_id") for element in elements if "library_id" in element])
-            equipment_libraries_info = []
-            for library_id in library_ids_in_elements:
-                library = db.equipment_libraries.find_one({"_id": ObjectId(library_id)})
-                if library:
-                    # Ensure all data is included in the response
-                    library_data = {
-                        "_id": str(library["_id"]),
-                        "library_name": library["library_name"],
-                        "created_at": convert_datetime_to_str(library["created_at"]),
-                        "updated_at": convert_datetime_to_str(library["updated_at"]),
-                        "equipments": library["equipments"]
-                    }
-                    library_data.pop("user_id", None)
-                    equipment_libraries_info.append(library_data)
-
+            equipment_libraries_info = EquipmentLibraryDB.find_by_library_ids(list(library_ids_in_elements))
+            equipment_libraries_info = [convert_objectid_and_datetime(lib) for lib in equipment_libraries_info]
+            for lib in equipment_libraries_info:
+                lib.pop("user_id", None)
             response["equipment_libraries"] = equipment_libraries_info
 
             response = convert_datetime_to_str(response)
-
-            return Response(
-                response=json.dumps(response),
-                status=200,
-                mimetype='application/json'
-            )
-
+            return Response(response=json.dumps(response), status=200, mimetype="application/json")
         except Exception as e:
             return {"message": str(e)}, 500
 
 ######################################
 # TopologyImportResource (插入拓扑)
 ######################################
+
 class TopologyImportResource(Resource):
     @jwt_required()
     def post(self, network_id):
         try:
             user_id = get_jwt_identity()
-            network = db.networks.find_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)})
+            # 使用模型层方法查找网络数据
+            network = NetworkDB.find_by_network_id(user_id, network_id)
             if not network:
                 return {"message": "Network not found or access denied."}, 404
 
-            # Get the request body data
+            # 获取请求参数
             data = request.get_json()
             if not data:
                 return {"message": "Invalid request body"}, 400
@@ -327,28 +276,26 @@ class TopologyImportResource(Resource):
             Span = data.get("Span", {})
             request_equipment_libraries = data.get("equipment_libraries", [])
 
-            # Process the new equipment libraries and insert them into the database
-            # We only need to insert libraries that are associated with new elements
+            # 处理请求中传入的设备库：调用模型层方法插入（或更新）设备库
             new_library_ids = []
             for library in request_equipment_libraries:
-                if "_id" not in library:
-                    # Create new library if no _id
-                    library['_id'] = ObjectId()
+                # 如果请求中提供了 _id（可能为字符串），确保转换为字符串的 ObjectId
+                if "_id" in library:
+                    # 如果已存在则更新，否则插入
+                    existing = EquipmentLibraryDB.find_by_id(library["_id"])
+                    if existing:
+                        EquipmentLibraryDB.update(library["_id"], {
+                            "library_name": library["library_name"],
+                            "equipments": library["equipments"],
+                            "created_at": library.get("created_at", datetime.utcnow())
+                        })
+                        new_library_ids.append(str(library["_id"]))
+                    else:
+                        new_library_ids.append(EquipmentLibraryDB.create_library(library, user_id))
                 else:
-                    # Ensure the _id is of type ObjectId
-                    if isinstance(library["_id"], str):
-                        library["_id"] = ObjectId(library["_id"])
+                    new_library_ids.append(EquipmentLibraryDB.create_library(library, user_id))
 
-                # Set user_id and timestamps
-                library['user_id'] = ObjectId(user_id)
-                library['created_at'] = datetime.utcnow()
-                library['updated_at'] = datetime.utcnow()
-
-                # Insert the library into the database if not already exists
-                db.equipment_libraries.insert_one(library)
-                new_library_ids.append(str(library['_id']))
-
-            # Collect all library_ids from existing elements and newly added elements
+            # 收集所有 library_id：从原有网络中与新元素中提取
             all_library_ids = set()
             for elem in network.get("elements", []):
                 if "library_id" in elem:
@@ -357,49 +304,28 @@ class TopologyImportResource(Resource):
                 if "library_id" in elem:
                     all_library_ids.add(str(elem["library_id"]))
 
-            # Validate and ensure that new elements' library_id are in allowed_library_ids
+            # 验证 new_elements 中的 library_id 存在于 all_library_ids
             validated_new_elements = []
             for element in new_elements:
                 if "library_id" in element and str(element["library_id"]) in all_library_ids:
                     validated_new_elements.append(element)
-
-            # Generate element_id for new elements
             validated_new_elements = NetworkDB.ensure_element_id(validated_new_elements)
 
-            # Update network with new elements, connections, and services
-            db.networks.update_one(
-                {"_id": ObjectId(network_id)},
-                {
-                    "$set": {
-                        "simulation_config": network.get("simulation_config", {}),
-                        "SI": network.get("SI", {}),
-                        "Span": network.get("Span", {}),
-                        "updated_at": datetime.utcnow()
-                    },
-                    "$push": {
-                        "elements": {"$each": validated_new_elements},
-                        "connections": {"$each": new_connections},
-                        "services": {"$each": new_services}
-                    }
-                }
-            )
-
-            # Fetch updated network data
-            updated_network = db.networks.find_one({"_id": ObjectId(network_id)})
+            # 使用模型层方法追加拓扑（新元素、连接、服务）到网络中
+            updated_network = NetworkDB.append_topology(network_id, validated_new_elements, new_connections, new_services)
             updated_network = convert_objectid_and_datetime(updated_network)
 
-            # Fetch only the equipment libraries related to all the library_ids in the elements
-            # Query only the libraries that are actually associated with the elements
-            equipment_libraries_response = list(
-                db.equipment_libraries.find({"_id": {"$in": [ObjectId(x) for x in all_library_ids]}})
-            )
+            # 从更新后的网络中提取所有实际使用的 library_id
+            library_ids_in_elements = set()
+            for elem in updated_network.get("elements", []):
+                if "library_id" in elem:
+                    library_ids_in_elements.add(str(elem["library_id"]))
 
-            # Ensure to remove user_id field from response and convert object_ids and datetime to string
+            # 查询设备库（仅返回与 elements 关联的库）
+            equipment_libraries_response = EquipmentLibraryDB.find_by_library_ids(list(library_ids_in_elements))
+            equipment_libraries_response = [convert_objectid_and_datetime(lib) for lib in equipment_libraries_response]
             for lib in equipment_libraries_response:
                 lib.pop("user_id", None)
-
-            # Ensure that all the libraries are included, even if their content is not complete
-            equipment_libraries_response = [convert_objectid_and_datetime(lib) for lib in equipment_libraries_response]
 
             response = OrderedDict({
                 "network_id": str(updated_network["_id"]),
@@ -412,7 +338,7 @@ class TopologyImportResource(Resource):
                 "simulation_config": updated_network["simulation_config"],
                 "SI": updated_network["SI"],
                 "Span": updated_network["Span"],
-                "equipment_libraries": equipment_libraries_response  # All libraries that were associated with the elements
+                "equipment_libraries": equipment_libraries_response
             })
 
             return Response(
@@ -420,7 +346,6 @@ class TopologyImportResource(Resource):
                 status=200,
                 mimetype='application/json'
             )
-
         except Exception as e:
             return {"message": str(e)}, 500
 
