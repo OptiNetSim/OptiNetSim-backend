@@ -302,8 +302,8 @@ class EquipmentLibraryDetail(Resource):
 
     @jwt_required()
     def delete(self, library_id):
-        success = EquipmentLibraryDB.delete(library_id)
-        if success:
+        res = EquipmentLibraryDB.delete(library_id)
+        if res.deleted_count > 0:
             return {"message": "Library deleted successfully"}, 200
         else:
             return {"message": "Library not found"}, 404
@@ -348,9 +348,9 @@ class EquipmentAddResource(Resource):
             return {"message": message}, 400
 
         # 调用 add_equipment 方法并传递器件库ID、类别和器件信息
-        success = EquipmentLibraryDB.add_equipment(library_id, category, equipment)
+        res = EquipmentLibraryDB.add_equipment(library_id, category, equipment)
 
-        if success:
+        if res:
             # 返回添加成功的器件信息
             return equipment, 201
         else:
@@ -385,11 +385,13 @@ class EquipmentUpdateResource(Resource):
             return {"message": message}, 400
 
         # 调用 update_equipment 方法并传递器件库ID、类别、器件类型和新参数
-        success = EquipmentLibraryDB.update_equipment(library_id, category, type_variety, equipment)
+        res = EquipmentLibraryDB.update_equipment(library_id, category, type_variety, equipment)
 
-        if success:
+        if res.modified_count > 0:
             # 返回更新后的器件信息
             return equipment, 200
+        elif res.matched_count != 0:
+            return {"message": "No changes detected."}, 200
         else:
             return {"message": "Equipment not found."}, 404
 
@@ -402,8 +404,8 @@ class EquipmentDeleteResource(Resource):
         if not library or library['user_id'] != ObjectId(user_id):
             return {"message": "Library not found or not authorized"}, 404
 
-        success = EquipmentLibraryDB.delete_equipment(library_id, category, type_variety)
-        if success:
+        res = EquipmentLibraryDB.delete_equipment(library_id, category, type_variety)
+        if res.modified_count > 0:
             return {"message": "Equipment deleted successfully"}, 200
         else:
             return {"message": "Equipment not found or invalid category"}, 404
