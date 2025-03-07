@@ -15,7 +15,7 @@ def create_app():
     from src.optinetsim_backend.app.routes import api_init_app
     app = api_init_app(app)
 
-    # # Enable CORS
-    # CORS(app)
+    # Enable CORS
+    CORS(app)
 
     return app
