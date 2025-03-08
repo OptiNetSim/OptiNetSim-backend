@@ -256,7 +256,7 @@ class EquipmentLibraryDB:
     @staticmethod
     def update_equipment(library_id, category, type_variety, equipment_update):
         # 更新器件信息
-        db.equipment_libraries.update_one(
+        return db.equipment_libraries.update_one(
             {"_id": ObjectId(library_id), f"equipments.{category}.type_variety": type_variety},
             {"$set": {f"equipments.{category}.$": equipment_update}}
         )
