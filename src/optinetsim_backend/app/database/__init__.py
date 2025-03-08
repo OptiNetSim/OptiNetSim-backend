@@ -20,7 +20,11 @@ from .global_config import (
     SpectrumInformationResource,
     SpanParametersResource
 )
-
+from .import_export import (
+    NetworkExportResource,
+    NetworkImportResource,
+    NetworkImportTopologyResource
+)
 __all__ = [
     'NetworkList',
     'NetworkResource',
@@ -39,4 +43,7 @@ __all__ = [
     'SimulationConfigResource',
     'SpectrumInformationResource',
     'SpanParametersResource',
+    'NetworkExportResource',
+    'NetworkImportResource',
+    'NetworkImportTopologyResource',
 ]
