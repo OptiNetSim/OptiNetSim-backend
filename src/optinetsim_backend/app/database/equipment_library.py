@@ -8,19 +8,55 @@ from src.optinetsim_backend.app.database.models import EquipmentLibraryDB
 
 
 def validate_edfa_params(params):
-    # 定义所有可能的字段及其类型
-    valid_fields = {
+    # 通用字段及其类型
+    common_fields = {
         "type_variety": str,  # 类型定义
         "type_def": str,  # 类型定义
-        "gain_flatmax": (float, int),  # 最大平坦增益
+        "allowed_for_design": bool,  # 是否允许用于设计
         "gain_min": (float, int),  # 最小增益
+        "gain_flatmax": (float, int),  # 最大平坦增益
         "p_max": (float, int),  # 最大功率
-        "nf_min": (float, int),  # 最小噪声系数
-        "nf_max": (float, int),  # 最大噪声系数
-        "nf_coef": list,  # 噪声系数
-        "out_voa_auto": bool,  # 是否自动调节输出 VOA
-        "allowed_for_design": bool  # 是否允许用于设计
+        "f_min": (float, int),  # 最小频率
+        "f_max": (float, int),  # 最大频率
+        # TODO: PMD PDL 文档中未提及，以下字段是否需要校验？
+        "pmd": (float, int),  # PMD, ps/nm
+        "pdl": (float, int),  # PDL, dB
     }
+
+    # 特定类型的字段及其类型
+    specific_fields = {
+        "variable_gain": {
+            "nf_min": (float, int),  # 最小噪声系数
+            "nf_max": (float, int),  # 最大噪声系数
+            "nf_coef": list,  # 噪声系数
+            "out_voa_auto": bool,  # 是否自动调节输出 VOA
+        },
+        "fixed_gain": {
+            "nf0": (float, int)  # 固定噪声系数
+        },
+        "openroadm": {
+            "nf_coef": list  # 噪声系数
+        },
+        "openroadm_preamp": {},
+        "openroadm_booster": {},
+        "advanced_model": {},
+        "multi_band": {
+            "amplifiers": list  # 多波段放大器列表
+        },
+        "dual_stage": {
+            "preamp_variety": str,  # 前置放大器类型
+            "booster_variety": str  # 后置放大器类型
+        }
+    }
+
+    # 校验 type_def 是否存在且合法
+    if "type_def" not in params:
+        return False, "Missing required field: type_def"
+    if params["type_def"] not in specific_fields:
+        return False, f"Invalid type_def: {params['type_def']}"
+
+    # 合并通用字段和特定类型的字段
+    valid_fields = {**common_fields, **specific_fields[params["type_def"]]}
 
     # 校验字段格式（如果存在）
     for field, field_type in valid_fields.items():
@@ -60,6 +96,11 @@ def validate_fiber_params(params):
                     return False, "dispersion_per_frequency must contain 'value' and 'frequency' keys"
                 if not isinstance(params[field]["value"], list) or not isinstance(params[field]["frequency"], list):
                     return False, "dispersion_per_frequency 'value' and 'frequency' must be lists"
+                # 校验 value 和 frequency 列表中的元素类型
+                if not all(isinstance(v, (float, int)) for v in params[field]["value"]):
+                    return False, "dispersion_per_frequency 'value' must contain numbers"
+                if not all(isinstance(f, (float, int)) for f in params[field]["frequency"]):
+                    return False, "dispersion_per_frequency 'frequency' must contain numbers"
             elif field == "lumped_losses":
                 # 校验 lumped_losses 的格式
                 if not isinstance(params[field], list):
@@ -69,6 +110,16 @@ def validate_fiber_params(params):
                         return False, "Each lumped_loss must be a dictionary"
                     if "position" not in loss or "loss" not in loss:
                         return False, "lumped_loss must contain 'position' and 'loss' keys"
+                    if not isinstance(loss["position"], (float, int)) or not isinstance(loss["loss"], (float, int)):
+                        return False, "lumped_loss 'position' and 'loss' must be numbers"
+            elif field == "raman_coefficient":
+                # 校验 raman_coefficient 的格式
+                if not isinstance(params[field], dict):
+                    return False, "raman_coefficient must be a dictionary"
+                if "reference_frequency" not in params[field] or "g_0" not in params[field]:
+                    return False, "raman_coefficient must contain 'reference_frequency' and 'g_0' keys"
+                if not isinstance(params[field]["reference_frequency"], (float, int)) or not isinstance(params[field]["g_0"], (float, int)):
+                    return False, "raman_coefficient 'reference_frequency' and 'g_0' must be numbers"
             elif not isinstance(params[field], field_type):
                 return False, f"Invalid type for field {field}, expected {field_type}"
 
