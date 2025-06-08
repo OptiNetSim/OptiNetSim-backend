@@ -5,7 +5,7 @@
 groups = ["default"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:ecb53fc11b8395c469ca842dbb4989e993a7f75e9a01f6efd72537117526a7de"
+content_hash = "sha256:e4b82c7579bfc0e9dfcd44410880d8d323f43c8660f35a52c4bd535bc43357d7"
 
 [[metadata.targets]]
 requires_python = "==3.11.*"
@@ -465,6 +465,20 @@ groups = ["default"]
 files = [
     {file = "pytz-2025.2-py2.py3-none-any.whl", hash = "sha256:5ddf76296dd8c44c26eb8f4b6f35488f3ccbf6fbbd7adee0b7262d43f0ec2f00"},
     {file = "pytz-2025.2.tar.gz", hash = "sha256:360b9e3dbb49a209c21ad61809c7fb453643e048b38924c765813546746e81c3"},
+]
+
+[[package]]
+name = "rootutils"
+version = "1.0.7"
+requires_python = ">=3.7.0"
+summary = "Simple package for easy project root setup"
+groups = ["default"]
+dependencies = [
+    "python-dotenv>=0.20.0",
+]
+files = [
+    {file = "rootutils-1.0.7-py3-none-any.whl", hash = "sha256:89f1994e6d0f499db7aca7f90edc146801cb33c8565a15c7cee4a4e4fc8c6eef"},
+    {file = "rootutils-1.0.7.tar.gz", hash = "sha256:7e2444cdbf4a73a907875fb109d55a38b4ee21313cef305bf59fadbf540440bc"},
 ]
 
 [[package]]

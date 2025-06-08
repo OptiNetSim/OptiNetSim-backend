@@ -1,6 +1,5 @@
 from flask import request
 from flask_restful import Resource
-from flask_jwt_extended import jwt_required, get_jwt_identity
 from bson import ObjectId
 
 # Project imports
@@ -310,10 +309,9 @@ def validate_transceiver_params(params):
 
 
 class EquipmentLibraryList(Resource):
-    @jwt_required()
+    @staticmethod
     def get(self):
-        user_id = get_jwt_identity()
-        libraries = EquipmentLibraryDB.find_by_user_id(user_id)
+        libraries = EquipmentLibraryDB.fetch_libraries()
         libraries_list = [
             {
                 "library_id": str(library['_id']),
@@ -325,12 +323,11 @@ class EquipmentLibraryList(Resource):
         ]
         return libraries_list, 200
 
-    @jwt_required()
+    @staticmethod
     def post(self):
-        user_id = get_jwt_identity()
         library_name = request.json.get('library_name')
-        library_id = EquipmentLibraryDB.create(user_id, library_name)
-        new_library = EquipmentLibraryDB.find_by_id(library_id.inserted_id)
+        library_id = EquipmentLibraryDB.create_library(library_name)
+        new_library = EquipmentLibraryDB.find_library_by_id(library_id.inserted_id)
         return {
             "library_id": str(new_library['_id']),
             "library_name": new_library['library_name'],
@@ -340,7 +337,7 @@ class EquipmentLibraryList(Resource):
 
 
 class EquipmentLibraryDetail(Resource):
-    @jwt_required()
+    @staticmethod
     def put(self, library_id):
         library_name = request.json.get('library_name')
         updated_library = EquipmentLibraryDB.update(library_id, library_name)
@@ -351,7 +348,7 @@ class EquipmentLibraryDetail(Resource):
             "updated_at": updated_library['updated_at'].strftime('%Y-%m-%dT%H:%M:%SZ')
         }, 200
 
-    @jwt_required()
+    @staticmethod
     def delete(self, library_id):
         res = EquipmentLibraryDB.delete(library_id)
         if res.deleted_count > 0:
@@ -361,23 +358,21 @@ class EquipmentLibraryDetail(Resource):
 
 
 class EquipmentList(Resource):
-    @jwt_required()
+    @staticmethod
     def get(self, library_id):
-        user_id = get_jwt_identity()
-        library = EquipmentLibraryDB.find_by_id(library_id)
-        if not library or library['user_id'] != ObjectId(user_id):
-            return {"message": "Library not found or not authorized"}, 404
+        library = EquipmentLibraryDB.find_library_by_id(library_id)
+        if not library:
+            return {"message": "Library not found"}, 404
 
         return library['equipments'], 200
 
 
 class EquipmentAddResource(Resource):
-    @jwt_required()
+    @staticmethod
     def post(self, library_id, category):
-        user_id = get_jwt_identity()
-        library = EquipmentLibraryDB.find_by_id(library_id)
-        if not library or library['user_id'] != ObjectId(user_id):
-            return {"message": "Library not found or not authorized"}, 404
+        library = EquipmentLibraryDB.find_library_by_id(library_id)
+        if not library:
+            return {"message": "Library not found"}, 404
 
         equipment = request.json
 
@@ -409,12 +404,11 @@ class EquipmentAddResource(Resource):
 
 
 class EquipmentUpdateResource(Resource):
-    @jwt_required()
+    @staticmethod
     def put(self, library_id, category, type_variety):
-        user_id = get_jwt_identity()
-        library = EquipmentLibraryDB.find_by_id(library_id)
-        if not library or library['user_id'] != ObjectId(user_id):
-            return {"message": "Library not found or not authorized"}, 404
+        library = EquipmentLibraryDB.find_library_by_id(library_id)
+        if not library:
+            return {"message": "Library not found"}, 404
 
         equipment = request.json
 
@@ -448,12 +442,11 @@ class EquipmentUpdateResource(Resource):
 
 
 class EquipmentDeleteResource(Resource):
-    @jwt_required()
+    @staticmethod
     def delete(self, library_id, category, type_variety):
-        user_id = get_jwt_identity()
-        library = EquipmentLibraryDB.find_by_id(library_id)
-        if not library or library['user_id'] != ObjectId(user_id):
-            return {"message": "Library not found or not authorized"}, 404
+        library = EquipmentLibraryDB.find_library_by_id(library_id)
+        if not library:
+            return {"message": "Library not found"}, 404
 
         res = EquipmentLibraryDB.delete_equipment(library_id, category, type_variety)
         if res.modified_count > 0:

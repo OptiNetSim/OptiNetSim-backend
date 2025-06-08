@@ -1,5 +1,4 @@
 from flask_restful import Resource, reqparse
-from flask_jwt_extended import jwt_required, get_jwt_identity
 from werkzeug.exceptions import BadRequest
 from bson import ObjectId
 
@@ -110,7 +109,7 @@ def validate_span_parameters(span_parameters):
 
 class SimulationConfigResource(Resource):
     # 用于更新指定光网络的仿真全局设定
-    @jwt_required()  # JWT鉴权
+    @staticmethod  # JWT鉴权
     def put(self, network_id):
         if not ObjectId.is_valid(network_id):
             return {"message": "Invalid network ID format."}, 400
@@ -127,8 +126,7 @@ class SimulationConfigResource(Resource):
                 return {"message": message}, 400
 
             # 检查网络是否存在
-            user_id = get_jwt_identity()
-            network = NetworkDB.find_by_network_id(user_id, network_id)
+            network = NetworkDB.find_by_network_id(network_id)
             if not network:
                 return {"message": f"Network {network_id} not found."}, 404
 
@@ -150,7 +148,7 @@ class SimulationConfigResource(Resource):
 
 class SpectrumInformationResource(Resource):
     # 更新指定光网络的频谱信息
-    @jwt_required()  # JWT鉴权
+    @staticmethod  # JWT鉴权
     def put(self, network_id):
         if not ObjectId.is_valid(network_id):
             return {"message": "Invalid network ID format."}, 400
@@ -175,8 +173,7 @@ class SpectrumInformationResource(Resource):
                 return {"message": message}, 400
 
             # 检查网络是否存在
-            user_id = get_jwt_identity()
-            network = NetworkDB.find_by_network_id(user_id, network_id)
+            network = NetworkDB.find_by_network_id(network_id)
             if not network:
                 return {"message": f"Network {network_id} not found."}, 404
 
@@ -194,7 +191,7 @@ class SpectrumInformationResource(Resource):
 
 class SpanParametersResource(Resource):
     # 更新指定光网络的跨段参数
-    @jwt_required()  # JWT鉴权
+    @staticmethod  # JWT鉴权
     def put(self, network_id):
         if not ObjectId.is_valid(network_id):
             return {"message": "Invalid network ID format."}, 400
@@ -222,8 +219,7 @@ class SpanParametersResource(Resource):
                 return {"message": message}, 400
 
             # 检查网络是否存在
-            user_id = get_jwt_identity()
-            network = NetworkDB.find_by_network_id(user_id, network_id)
+            network = NetworkDB.find_by_network_id(network_id)
             if not network:
                 return {"message": f"Network {network_id} not found."}, 404
 

@@ -13,7 +13,7 @@ from gnpy.core.utils import lin2db, pretty_summary_print, per_label_average, wat
 from gnpy.topology.request import (ResultElement, jsontocsv, BLOCKING_NOPATH)
 from gnpy.tools.plots import plot_baseline, plot_results
 from gnpy.tools.worker_utils import designed_network, transmission_simulation, planning
-from gnpy.tools.json_io import load_initial_spectrum,_spectrum_from_json
+from gnpy.tools.json_io import load_initial_spectrum, _spectrum_from_json
 
 # Project imports
 from src.optinetsim_backend.app.simulation.loader import (
@@ -25,12 +25,13 @@ from src.optinetsim_backend.app.simulation.sim_params import generate_simulation
 
 
 # Simulate the network
-def simulate_network(user_id, network_id, source_uid, destination_uid, plot=False, spectrum: dict = None, power = 0, no_insert_edfas = False):
-    equipment = load_equipment_from_database(user_id, network_id)
-    network = load_network_from_database(user_id, network_id, equipment)
+def simulate_network(network_id, source_uid, destination_uid, plot=False, spectrum: dict = None, power=0,
+                     no_insert_edfas=False):
+    equipment = load_equipment_from_database(network_id)
+    network = load_network_from_database(network_id, equipment)
     if plot:
         plot_baseline(network)
-    sim_params = load_sim_parameters_from_database(user_id, network_id)
+    sim_params = load_sim_parameters_from_database(network_id)
     # print(sim_params)
     if next((node for node in network if isinstance(node, RamanFiber)), None) is not None:
         print(f'{ansi_escapes.red}调用错误:{ansi_escapes.reset} '
@@ -46,8 +47,8 @@ def simulate_network(user_id, network_id, source_uid, destination_uid, plot=Fals
 
     source = transceivers.pop(source_uid, None)
     destination = transceivers.pop(destination_uid, None)
-    #print('源节点:', source)
-    #print('目标节点:', destination)
+    # print('源节点:', source)
+    # print('目标节点:', destination)
     nodes_list = []
     loose_list = []
 
@@ -72,12 +73,12 @@ def simulate_network(user_id, network_id, source_uid, destination_uid, plot=Fals
     print('\n'.join([f'功率模式设置为 {power_mode}',
                      '=> 可在网络 Span 中修改该配置']))
     try:
-        #print(nodes_list, loose_list)
+        # print(nodes_list, loose_list)
         network, req, ref_req = designed_network(equipment, network, source.uid, destination.uid,
                                                  nodes_list=nodes_list, loose_list=loose_list,
                                                  args_power=power,
                                                  initial_spectrum=initial_spectrum,
-                                                 no_insert_edfas=no_insert_edfas,)
+                                                 no_insert_edfas=no_insert_edfas, )
         path, propagations_for_path, powers_dbm, infos = transmission_simulation(equipment, network, req, ref_req)
     except exceptions.NetworkTopologyError as e:
         print(f'{ansi_escapes.red}Invalid network definition:{ansi_escapes.reset} {e}')
@@ -105,8 +106,9 @@ def simulate_network(user_id, network_id, source_uid, destination_uid, plot=Fals
           + '                      收发器输出功率 = '
           + f'{pretty_summary_print(per_label_average(watt2dbm(infos.tx_power), infos.label))} dBm,\n'
           + f'                      通道数量 = {infos.number_of_channels})')
-    
-    res_path = []    
+
+    res_path = []
+    mypath = []
     for mypath, power_dbm in zip(propagations_for_path, powers_dbm):
         if power_mode:
             print(f'跨段输入光功率参考 = {ansi_escapes.cyan}{power_dbm:.2f} '
@@ -125,7 +127,7 @@ def simulate_network(user_id, network_id, source_uid, destination_uid, plot=Fals
         else:
             print(mypath[-1])
 
-    channel_data = []  
+    channel_data = []
     # print('\n线路末端每个通道的 GSNR 为:')
     # print(
     #     '{:>5}{:>26}{:>26}{:>28}{:>28}{:>28}' .format(
@@ -158,8 +160,9 @@ def simulate_network(user_id, network_id, source_uid, destination_uid, plot=Fals
         #                 ch_snr, 2)))
 
     return spans, infos, res_path, mypath, channel_data
-        
+
+
 if __name__ == '__main__':
-    simulate_network('678eb752758dcc9974b2603d', '67a83f2109f8bdef32408844',
-                     '67a858fd55643b796290c2e2', '67a858fd55643b796290c2e4', False)
+    simulate_network('67a83f2109f8bdef32408844', '67a858fd55643b796290c2e2',
+                     '67a858fd55643b796290c2e4', False)
     print('仿真成功完成')

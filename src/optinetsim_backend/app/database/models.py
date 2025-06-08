@@ -7,41 +7,10 @@ client = MongoClient(Config.MONGO_URI)
 db = client.optinetsim
 
 
-class UserDB:
-    @staticmethod
-    def create(username, password, email):
-        user = {
-            "username": username,
-            "password": password,
-            "email": email
-        }
-        return db.users.insert_one(user)
-
-    @staticmethod
-    def find_by_username(username):
-        return db.users.find_one({"username": username})
-
-    @staticmethod
-    def delete_by_userid(user_id):
-        return db.users.delete_one({"_id": ObjectId(user_id)}).deleted_count > 0
-
-    @staticmethod
-    def find_by_userid(user_id):
-        return db.users.find_one({"_id": ObjectId(user_id)})
-
-    @staticmethod
-    def update_password(user_id, password):
-        db.users.update_one(
-            {"_id": ObjectId(user_id)},
-            {"$set": {"password": password}}
-        )
-
-
 class NetworkDB:
     @staticmethod
-    def create(user_id, network_name):
+    def create_network(network_name):
         network = {
-            "user_id": ObjectId(user_id),
             "network_name": network_name,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
@@ -55,9 +24,9 @@ class NetworkDB:
         return db.networks.insert_one(network)
 
     @staticmethod
-    def modify_network_name(user_id, network_id, network_name):
+    def modify_network_name(network_id, network_name):
         db.networks.update_one(
-            {"_id": ObjectId(network_id), "user_id": ObjectId(user_id)},
+            {"_id": ObjectId(network_id)},
             {
                 "$set":
                     {
@@ -99,17 +68,17 @@ class NetworkDB:
         )
 
     @staticmethod
-    def find_by_user_id(user_id):
-        return db.networks.find({"user_id": ObjectId(user_id)})
+    def fetch_networks():
+        return db.networks
 
     @staticmethod
-    def find_by_network_id(user_id, network_id):
-        return db.networks.find_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)})
+    def find_by_network_id(network_id):
+        return db.networks.find_one({"_id": ObjectId(network_id)})
 
     @staticmethod
-    def delete_by_network_id(user_id, network_id):
+    def delete_by_network_id(network_id):
         # 删除网络并返回删除成功与否
-        return db.networks.delete_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)}).deleted_count
+        return db.networks.delete_one({"_id": ObjectId(network_id)}).deleted_count
 
     @staticmethod
     def delete_by_user_id(user_id):
@@ -180,11 +149,11 @@ class NetworkDB:
             return network["elements"][0].get("name", None)
         return None
 
+
 class EquipmentLibraryDB:
     @staticmethod
-    def create(user_id, library_name):
+    def create_library(library_name):
         library = {
-            "user_id": ObjectId(user_id),
             "library_name": library_name,
             "created_at": datetime.utcnow(),
             "updated_at": datetime.utcnow(),
@@ -199,19 +168,20 @@ class EquipmentLibraryDB:
         return db.equipment_libraries.insert_one(library)
 
     @staticmethod
-    def find_by_user_id(user_id):
-        return db.equipment_libraries.find({"user_id": ObjectId(user_id)})
+    def fetch_libraries():
+        return db.equipment_libraries
 
     @staticmethod
-    def find_by_id(library_id):
+    def find_library_by_id(library_id):
         return db.equipment_libraries.find_one({"_id": ObjectId(library_id)})
 
     @staticmethod
-    def find_by_type_variety(user_id, library_id, element_type, element_type_variety):
+    def find_equipment_by_type_variety(library_id, element_type, element_type_variety):
         # 返回器件库中是否存在该类型的器件，存在则返回该器件，否则返回 None
-        library = db.equipment_libraries.find_one({"_id": ObjectId(library_id), "user_id": ObjectId(user_id)})
+        library = db.equipment_libraries.find_one({"_id": ObjectId(library_id)})
         if library and element_type in library['equipments']:
-            return next((e for e in library['equipments'][element_type] if e['type_variety'] == element_type_variety), None)
+            return next((e for e in library['equipments'][element_type] if e['type_variety'] == element_type_variety),
+                        None)
         return None
 
     @staticmethod

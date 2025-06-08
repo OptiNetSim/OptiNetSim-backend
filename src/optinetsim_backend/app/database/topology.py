@@ -1,6 +1,5 @@
 from flask import request, jsonify
 from flask_restful import Resource
-from flask_jwt_extended import jwt_required, get_jwt_identity
 from bson import ObjectId
 
 # Project imports
@@ -137,19 +136,18 @@ def validate_element_data(data, element_type):
 
     for field in data.keys():
         if field not in allowed_fields:
-                return False, f"Undefined field: {field}"
+            return False, f"Undefined field: {field}"
 
     return True, "Data is valid"
 
 
 class TopologyAddElement(Resource):
-    @jwt_required()
+    @staticmethod
     def post(self, network_id):
         """添加网络拓扑元素"""
-        user_id = get_jwt_identity()
         data = request.get_json()
 
-        network = NetworkDB.find_by_network_id(user_id, network_id)
+        network = NetworkDB.find_by_network_id(network_id)
         if not network:
             return {"message": "Network not found"}, 404
 
@@ -176,13 +174,12 @@ class TopologyAddElement(Resource):
 
 
 class TopologyUpdateElement(Resource):
-    @jwt_required()
+    @staticmethod
     def put(self, network_id, element_id):
         """修改网络拓扑元素"""
-        user_id = get_jwt_identity()
         data = request.get_json()
 
-        network = NetworkDB.find_by_network_id(user_id, network_id)
+        network = NetworkDB.find_by_network_id(network_id)
         if not network:
             return {"message": "Network not found"}, 404
 
@@ -211,12 +208,10 @@ class TopologyUpdateElement(Resource):
 
 
 class TopologyDeleteElement(Resource):
-    @jwt_required()
+    @staticmethod
     def delete(self, network_id, element_id):
         """删除网络拓扑元素"""
-        user_id = get_jwt_identity()
-
-        network = NetworkDB.find_by_network_id(user_id, network_id)
+        network = NetworkDB.find_by_network_id(network_id)
         if not network:
             return {"message": "Network not found"}, 404
 
@@ -249,13 +244,12 @@ def validate_connection_data(network, data):
 
 
 class ConnectionAdd(Resource):
-    @jwt_required()
+    @staticmethod
     def post(self, network_id):
         """创建连接关系"""
-        user_id = get_jwt_identity()
         data = request.get_json()
 
-        network = NetworkDB.find_by_network_id(user_id, network_id)
+        network = NetworkDB.find_by_network_id(network_id)
         if not network:
             return {"message": "Network not found"}, 404
 
@@ -280,13 +274,12 @@ class ConnectionAdd(Resource):
 
 
 class ConnectionUpdate(Resource):
-    @jwt_required()
+    @staticmethod
     def put(self, network_id, connection_id):
         """更新连接关系"""
-        user_id = get_jwt_identity()
         data = request.get_json()
 
-        network = NetworkDB.find_by_network_id(user_id, network_id)
+        network = NetworkDB.find_by_network_id(network_id)
         if not network:
             return {"message": "Network not found"}, 404
 
@@ -316,12 +309,10 @@ class ConnectionUpdate(Resource):
 
 
 class ConnectionDelete(Resource):
-    @jwt_required()
+    @staticmethod
     def delete(self, network_id, connection_id):
         """删除连接关系"""
-        user_id = get_jwt_identity()
-
-        network = NetworkDB.find_by_network_id(user_id, network_id)
+        network = NetworkDB.find_by_network_id(network_id)
         if not network:
             return {"message": "Network not found"}, 404
 
@@ -330,4 +321,3 @@ class ConnectionDelete(Resource):
         if delete_result.modified_count > 0:
             return {"message": "Connection deleted successfully"}, 200
         return {"message": "Connection not found"}, 404
-

@@ -13,6 +13,7 @@ dependencies = [
     "python-dotenv>=1.0.1",
     "gnpy==2.12.1",
     "flask-cors>=5.0.0",
+    "rootutils>=1.0.7",
 ]
 requires-python = "==3.11.*"
 readme = "README.md"

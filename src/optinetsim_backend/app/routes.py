@@ -1,19 +1,12 @@
 from flask_restful import Api
 
 # Project imports
-from src.optinetsim_backend.app.auth import *
 from src.optinetsim_backend.app.database import *
 from src.optinetsim_backend.app.simulation import *
 
 
 def api_init_app(app):
     api = Api(app)
-
-    # 用户认证相关接口
-    api.add_resource(LoginResource, '/api/auth/login')
-    api.add_resource(RegisterResource, '/api/auth/register')
-    api.add_resource(UserResource, '/api/auth/delete')
-    api.add_resource(ChangePasswordResource, '/api/auth/change-password')
 
     # 网络相关接口
     api.add_resource(NetworkList, '/api/networks')
