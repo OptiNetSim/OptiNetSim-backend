@@ -1,3 +1,4 @@
+# src/optinetsim_backend/app/database/models.py
 from datetime import datetime
 from pymongo import MongoClient
 from bson import ObjectId
@@ -16,7 +17,7 @@ class NetworkDB:
             "updated_at": datetime.utcnow(),
             "elements": [],
             "connections": [],
-            "services": [],
+            "services": [],  # Ensure 'services' array exists
             "SI": {},
             "Span": {},
             "simulation_config": {}
@@ -61,6 +62,15 @@ class NetworkDB:
         db.networks.update_one(
             {"_id": ObjectId(network_id)},
             {"$pull": {"connections": {"to_node": element_id}}}
+        )
+        # 删除与该 element 相关的业务流量要求 (source 或 target)
+        db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$pull": {"services": {"source_element_id": element_id}}}
+        )
+        db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {"$pull": {"services": {"target_element_id": element_id}}}
         )
         return db.networks.update_one(
             {"_id": ObjectId(network_id)},
@@ -143,6 +153,54 @@ class NetworkDB:
         if network and network["elements"]:
             return network["elements"][0].get("name", None)
         return None
+
+    @staticmethod
+    def add_service_requirement(network_id, service_data):
+        """
+        向指定网络添加业务流量要求
+        service_data 包含 source_element_id, target_element_id, traffic_requirement, service_constraints
+        """
+        # Generate a unique service_id
+        service_id = str(ObjectId())
+        service_data["service_id"] = service_id
+
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {
+                "$push": {"services": service_data},
+                "$set": {"updated_at": datetime.utcnow()}
+            }
+        )
+
+    @staticmethod
+    def update_service_requirement(network_id, service_id, traffic_requirement_data):
+        """
+        更新指定网络的业务流量要求
+        traffic_requirement_data 包含 bandwidth 和 latency
+        """
+        set_fields = {
+            "services.$.traffic_requirement.bandwidth": traffic_requirement_data["bandwidth"],
+            "services.$.traffic_requirement.latency": traffic_requirement_data["latency"],
+            "updated_at": datetime.utcnow()
+        }
+
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id), "services.service_id": service_id},
+            {"$set": set_fields}
+        )
+
+    @staticmethod
+    def delete_service_requirement(network_id, service_id):
+        """
+        从指定网络删除业务流量要求
+        """
+        return db.networks.update_one(
+            {"_id": ObjectId(network_id)},
+            {
+                "$pull": {"services": {"service_id": service_id}},
+                "$set": {"updated_at": datetime.utcnow()}
+            }
+        )
 
 
 class EquipmentLibraryDB:

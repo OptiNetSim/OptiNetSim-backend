@@ -13,7 +13,10 @@ from .topology import (
     TopologyDeleteElement,
     ConnectionAdd,
     ConnectionUpdate,
-    ConnectionDelete
+    ConnectionDelete,
+    ServiceAddResource,
+    ServiceUpdateResource,
+    ServiceDeleteResource
 )
 from .global_config import (
     SimulationConfigResource,
@@ -36,6 +39,9 @@ __all__ = [
     'ConnectionAdd',
     'ConnectionUpdate',
     'ConnectionDelete',
+    'ServiceAddResource',
+    'ServiceUpdateResource',
+    'ServiceDeleteResource',
     'SimulationConfigResource',
     'SpectrumInformationResource',
     'SpanParametersResource',

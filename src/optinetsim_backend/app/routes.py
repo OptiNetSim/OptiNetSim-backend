@@ -22,6 +22,11 @@ def api_init_app(app):
     api.add_resource(ConnectionUpdate, '/api/networks/<string:network_id>/connections/<string:connection_id>')
     api.add_resource(ConnectionDelete, '/api/networks/<string:network_id>/connections/<string:connection_id>')
 
+    # 业务流量要求相关接口
+    api.add_resource(ServiceAddResource, '/api/networks/<string:network_id>/services')
+    api.add_resource(ServiceUpdateResource, '/api/networks/<string:network_id>/services/<string:service_id>')
+    api.add_resource(ServiceDeleteResource, '/api/networks/<string:network_id>/services/<string:service_id>')
+
     # 器件库相关接口
     api.add_resource(EquipmentLibraryList, '/api/equipment-libraries')
     api.add_resource(EquipmentLibraryDetail, '/api/equipment-libraries/<string:library_id>')
