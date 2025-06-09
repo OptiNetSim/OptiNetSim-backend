@@ -35,7 +35,7 @@ class NetworkDB:
                     }
             }
         )
-        return db.networks.find_one({"_id": ObjectId(network_id), "user_id": ObjectId(user_id)})
+        return db.networks.find_one({"_id": ObjectId(network_id)})
 
     @staticmethod
     def add_element(network_id, element):
@@ -69,7 +69,7 @@ class NetworkDB:
 
     @staticmethod
     def fetch_networks():
-        return db.networks
+        return db.networks.find()
 
     @staticmethod
     def find_by_network_id(network_id):
@@ -79,11 +79,6 @@ class NetworkDB:
     def delete_by_network_id(network_id):
         # 删除网络并返回删除成功与否
         return db.networks.delete_one({"_id": ObjectId(network_id)}).deleted_count
-
-    @staticmethod
-    def delete_by_user_id(user_id):
-        # 删除用户的所有网络并返回删除成功与否
-        return db.networks.delete_many({"user_id": ObjectId(user_id)}).deleted_count
 
     @staticmethod
     def update_simulation_config(network_id, simulation_config):
@@ -169,7 +164,7 @@ class EquipmentLibraryDB:
 
     @staticmethod
     def fetch_libraries():
-        return db.equipment_libraries
+        return db.equipment_libraries.find()
 
     @staticmethod
     def find_library_by_id(library_id):

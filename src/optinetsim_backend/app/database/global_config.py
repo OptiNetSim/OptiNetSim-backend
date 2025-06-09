@@ -110,7 +110,7 @@ def validate_span_parameters(span_parameters):
 class SimulationConfigResource(Resource):
     # 用于更新指定光网络的仿真全局设定
     @staticmethod  # JWT鉴权
-    def put(self, network_id):
+    def put(network_id):
         if not ObjectId.is_valid(network_id):
             return {"message": "Invalid network ID format."}, 400
 
@@ -149,7 +149,7 @@ class SimulationConfigResource(Resource):
 class SpectrumInformationResource(Resource):
     # 更新指定光网络的频谱信息
     @staticmethod  # JWT鉴权
-    def put(self, network_id):
+    def put(network_id):
         if not ObjectId.is_valid(network_id):
             return {"message": "Invalid network ID format."}, 400
 
@@ -192,7 +192,7 @@ class SpectrumInformationResource(Resource):
 class SpanParametersResource(Resource):
     # 更新指定光网络的跨段参数
     @staticmethod  # JWT鉴权
-    def put(self, network_id):
+    def put(network_id):
         if not ObjectId.is_valid(network_id):
             return {"message": "Invalid network ID format."}, 400
 

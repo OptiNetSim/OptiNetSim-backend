@@ -143,7 +143,7 @@ def validate_element_data(data, element_type):
 
 class TopologyAddElement(Resource):
     @staticmethod
-    def post(self, network_id):
+    def post(network_id):
         """添加网络拓扑元素"""
         data = request.get_json()
 
@@ -175,7 +175,7 @@ class TopologyAddElement(Resource):
 
 class TopologyUpdateElement(Resource):
     @staticmethod
-    def put(self, network_id, element_id):
+    def put(network_id, element_id):
         """修改网络拓扑元素"""
         data = request.get_json()
 
@@ -209,7 +209,7 @@ class TopologyUpdateElement(Resource):
 
 class TopologyDeleteElement(Resource):
     @staticmethod
-    def delete(self, network_id, element_id):
+    def delete(network_id, element_id):
         """删除网络拓扑元素"""
         network = NetworkDB.find_by_network_id(network_id)
         if not network:
@@ -245,7 +245,7 @@ def validate_connection_data(network, data):
 
 class ConnectionAdd(Resource):
     @staticmethod
-    def post(self, network_id):
+    def post(network_id):
         """创建连接关系"""
         data = request.get_json()
 
@@ -275,7 +275,7 @@ class ConnectionAdd(Resource):
 
 class ConnectionUpdate(Resource):
     @staticmethod
-    def put(self, network_id, connection_id):
+    def put(network_id, connection_id):
         """更新连接关系"""
         data = request.get_json()
 
@@ -310,7 +310,7 @@ class ConnectionUpdate(Resource):
 
 class ConnectionDelete(Resource):
     @staticmethod
-    def delete(self, network_id, connection_id):
+    def delete(network_id, connection_id):
         """删除连接关系"""
         network = NetworkDB.find_by_network_id(network_id)
         if not network:

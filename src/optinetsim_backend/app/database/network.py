@@ -7,7 +7,7 @@ from src.optinetsim_backend.app.database.models import NetworkDB
 
 class NetworkList(Resource):
     @staticmethod
-    def get(self):
+    def get():
         networks = NetworkDB.fetch_networks()
         networks_list = [
             {
@@ -21,7 +21,7 @@ class NetworkList(Resource):
         return {'networks': networks_list}, 200
 
     @staticmethod
-    def post(self):
+    def post():
         network_name = request.json.get('network_name', None)
         network = NetworkDB.create_network(network_name)
         return {
@@ -33,7 +33,7 @@ class NetworkList(Resource):
 
 class NetworkResource(Resource):
     @staticmethod
-    def get(self, network_id):
+    def get(network_id):
         networks = NetworkDB.find_by_network_id(network_id)
         # 若无法找到网络，则返回 404
         if not networks:
@@ -49,7 +49,7 @@ class NetworkResource(Resource):
         return {'message': 'Network not found'}, 404
 
     @staticmethod
-    def put(self, network_id):
+    def put(network_id):
         parser = reqparse.RequestParser()
         parser.add_argument('network_name', type=str, required=True)
         args = parser.parse_args()
@@ -66,7 +66,7 @@ class NetworkResource(Resource):
         return {'message': 'Network not found'}, 404
 
     @staticmethod
-    def delete(self, network_id):
+    def delete(network_id):
         network = NetworkDB.delete_by_network_id(network_id)
         if network:
             return {'message': 'Network deleted successfully'}, 200

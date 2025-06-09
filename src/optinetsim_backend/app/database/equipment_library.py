@@ -310,7 +310,7 @@ def validate_transceiver_params(params):
 
 class EquipmentLibraryList(Resource):
     @staticmethod
-    def get(self):
+    def get():
         libraries = EquipmentLibraryDB.fetch_libraries()
         libraries_list = [
             {
@@ -324,7 +324,7 @@ class EquipmentLibraryList(Resource):
         return libraries_list, 200
 
     @staticmethod
-    def post(self):
+    def post():
         library_name = request.json.get('library_name')
         library_id = EquipmentLibraryDB.create_library(library_name)
         new_library = EquipmentLibraryDB.find_library_by_id(library_id.inserted_id)
@@ -338,7 +338,7 @@ class EquipmentLibraryList(Resource):
 
 class EquipmentLibraryDetail(Resource):
     @staticmethod
-    def put(self, library_id):
+    def put(library_id):
         library_name = request.json.get('library_name')
         updated_library = EquipmentLibraryDB.update(library_id, library_name)
         return {
@@ -349,7 +349,7 @@ class EquipmentLibraryDetail(Resource):
         }, 200
 
     @staticmethod
-    def delete(self, library_id):
+    def delete(library_id):
         res = EquipmentLibraryDB.delete(library_id)
         if res.deleted_count > 0:
             return {"message": "Library deleted successfully"}, 200
@@ -359,7 +359,7 @@ class EquipmentLibraryDetail(Resource):
 
 class EquipmentList(Resource):
     @staticmethod
-    def get(self, library_id):
+    def get(library_id):
         library = EquipmentLibraryDB.find_library_by_id(library_id)
         if not library:
             return {"message": "Library not found"}, 404
@@ -369,7 +369,7 @@ class EquipmentList(Resource):
 
 class EquipmentAddResource(Resource):
     @staticmethod
-    def post(self, library_id, category):
+    def post(library_id, category):
         library = EquipmentLibraryDB.find_library_by_id(library_id)
         if not library:
             return {"message": "Library not found"}, 404
@@ -405,7 +405,7 @@ class EquipmentAddResource(Resource):
 
 class EquipmentUpdateResource(Resource):
     @staticmethod
-    def put(self, library_id, category, type_variety):
+    def put(library_id, category, type_variety):
         library = EquipmentLibraryDB.find_library_by_id(library_id)
         if not library:
             return {"message": "Library not found"}, 404
@@ -443,7 +443,7 @@ class EquipmentUpdateResource(Resource):
 
 class EquipmentDeleteResource(Resource):
     @staticmethod
-    def delete(self, library_id, category, type_variety):
+    def delete(library_id, category, type_variety):
         library = EquipmentLibraryDB.find_library_by_id(library_id)
         if not library:
             return {"message": "Library not found"}, 404
