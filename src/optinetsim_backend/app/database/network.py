@@ -39,7 +39,8 @@ class NetworkResource(Resource):
         if not networks:
             return {'message': 'Network not found'}, 404
         # ObjectId 转换为字符串
-        networks['_id'] = str(networks['_id'])
+        networks['network_id'] = str(networks['_id'])
+        networks.pop('_id')
         # 时间格式转换
         networks['created_at'] = networks['created_at'].strftime('%Y-%m-%dT%H:%M:%SZ')
         networks['updated_at'] = networks['updated_at'].strftime('%Y-%m-%dT%H:%M:%SZ')

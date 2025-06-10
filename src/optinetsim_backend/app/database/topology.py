@@ -188,6 +188,14 @@ class TopologyUpdateElement(Resource):
         if not element_type:
             return {"message": "Element type is required"}, 400
 
+        element_id_inside = data.get("element_id")
+        if not element_id_inside:
+            pass
+        elif element_id_inside != element_id:
+            return {"message": "Element id must be the same"}, 400
+        else:
+            del data["element_id"]
+
         is_valid, message = validate_element_data(data, element_type)
         if not is_valid:
             return {"message": message}, 400
